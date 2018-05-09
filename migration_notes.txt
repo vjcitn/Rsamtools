@@ -1,0 +1,56 @@
+Update Rsamtools to use htslib 1.7
+==================================
+
+Some context
+------------
+
+Rsamtools 1.33.0 contains a copy of an old (8-10 year old?) version of the
+samtools and tabix C code.
+
+The latest version of samtools is 1.8 (as of May 9, 2018):
+
+  http://www.htslib.org/
+
+In the recent years the samtools code has been split into samtools + htslib.
+Most of the code that used to be in samtools is now in htslib. The latest
+version of htslib is also 1.8.
+
+Note that a decently recent version of htslib (version 1.7) is wrapped in a
+Bioconductor package: Rhtslib
+
+samtools functions and data structures used in Rsamtools
+--------------------------------------------------------
+
+As a first pass, let's identify the subset of the old samtools API that is
+used by Rsamtools 1.33.0 and, for each symbol, report its status in htslib 1.7:
+
+  Used in Rsamtools                Status in htslib 1.7
+  -------------------------------  ----------------------------------------
+  bam_init1           (bam.h)      yes (sam.h)
+  bam_destroy1        (bam.h)      yes (sam.h)
+  bam_index_build     (bam.h)      yes (sam.h)
+  bam_index_load      (bam.h)      yes (sam.h)
+  bam_index_destroy   (bam.h)      NO
+  bam_dup1            (bam.h)      yes (sam.h)
+
+  samopen             (sam.h)      NO -- replaced with sam_open    (sam.h)
+  samclose            (sam.h)      NO -- replaced with sam_close   (sam.h)
+  samread             (sam.h)      NO -- replaced with sam_read1?  (sam.h)
+  samwrite            (sam.h)      NO -- replaced with sam_write1? (sam.h)
+
+  ... TO BE CONTINUED ...
+
+
+Tip: To find the header files where a samtools function is defined (e.g. the
+bam_init1 function):
+
+    find . -type d -name '.git' -prune -o -type f -name '*.h' -exec grep -Hw 'bam_init1' {} \;
+
+Run the above command twice, once in Rsamtools/src and once in
+Rhtslib/src/htslib-1.7 to find the header file in Rsamtools and in htslib-1.7,
+respectively.
+
+We might also run into data structure changes. They should only create problems
+if Rsamtools C/C++ code access members that have changed e.g. have been
+removed, renamed, or their type has changed.
+
