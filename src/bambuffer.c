@@ -90,8 +90,6 @@ SEXP bambuffer_length(SEXP bufext)
     return ScalarInteger(BAMBUFFER(bufext)->i);
 }
 
-#ifdef MIGRATE_ME
-
 SEXP bambuffer_parse(SEXP ext, SEXP space, SEXP keepFlags, SEXP isSimpleCigar,
                      SEXP tagFilter, SEXP mapqFilter, SEXP bufext,
                      SEXP reverseComplement, SEXP templateList)
@@ -149,8 +147,6 @@ SEXP bambuffer_parse(SEXP ext, SEXP space, SEXP keepFlags, SEXP isSimpleCigar,
 
     return result;
 }
-
-#endif  /* MIGRATE_ME */
 
 SEXP bambuffer_write(SEXP bufext, SEXP bamext, SEXP filter)
 {

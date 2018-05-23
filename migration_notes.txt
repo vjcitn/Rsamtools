@@ -101,7 +101,7 @@ sam_utils.c, and the *_stubs.c files):
   File                 Status            Assigned to
   -------------------  ----------------  -----------
   as_bam.c             done
-  bambuffer.c          TO DO
+  bambuffer.c          done
   bam_data.c           done
   bamfile.c            done
   bcffile.c            TO DO
