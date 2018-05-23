@@ -3,7 +3,7 @@
 #include "utilities.h"
 #include "IRanges_interface.h"
 #include "XVector_interface.h"
-#include "samtools/khash.h"
+#include "khash.h"
 
 void *_Rs_Realloc_impl(void *p, size_t n, size_t t)
 {

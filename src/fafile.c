@@ -3,9 +3,16 @@
 #include "XVector_interface.h"
 #include "fafile.h"
 #include "utilities.h"
+
+#ifdef MIGRATE_ME
+
 #include "razf.h"
 
+#endif  /* MIGRATE_ME */
+
 static SEXP FAFILE_TAG = NULL;
+
+#ifdef MIGRATE_ME
 
 static faidx_t *_fa_tryopen(const char *fname, const char *iname)
 {
@@ -35,11 +42,15 @@ static void _fafile_finalizer(SEXP ext)
     R_SetExternalPtrAddr(ext, NULL);
 }
 
+#endif  /* MIGRATE_ME */
+
 SEXP fafile_init()
 {
     FAFILE_TAG = install("FaFile");
     return R_NilValue;
 }
+
+#ifdef MIGRATE_ME
 
 SEXP fafile_open(SEXP filename, SEXP indexname)
 {
@@ -181,3 +192,5 @@ SEXP scan_fa(SEXP ext, SEXP seq, SEXP start, SEXP end, SEXP type, SEXP lkup)
     UNPROTECT(2);
     return ans;
 }
+
+#endif  /* MIGRATE_ME */

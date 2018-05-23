@@ -1,3 +1,5 @@
+#ifdef MIGRATE_ME
+
 #include "PileupBuffer.h"
 
 void Pileup::signalEOI() {
@@ -190,3 +192,5 @@ SEXP Pileup::yield() {
     UNPROTECT(2);
     return result;
 }
+
+#endif  /* MIGRATE_ME */

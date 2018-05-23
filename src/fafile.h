@@ -2,7 +2,7 @@
 #define FAFILE_H
 
 #include <Rdefines.h>
-#include "samtools/faidx.h"
+#include "faidx.h"
 
 typedef struct {
     faidx_t *index;

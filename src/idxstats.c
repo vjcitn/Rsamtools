@@ -1,7 +1,7 @@
 #include "bamfile.h"
 #include "utilities.h"          /* _checkext */
-#include "samtools/khash.h"
-#include "samtools/ksort.h"
+#include "khash.h"
+#include "ksort.h"
 
 extern SEXP BAMFILE_TAG;
 
@@ -37,6 +37,8 @@ struct __bam_index_t {
 	khash_t(idxstat_hash) **index;
 	bam_lidx_t *index2;
 };
+
+#ifdef MIGRATE_ME
 
 SEXP idxstats_bamfile(SEXP ext)
 {
@@ -76,3 +78,5 @@ SEXP idxstats_bamfile(SEXP ext)
     UNPROTECT(1);
     return result;
 }
+
+#endif  /* MIGRATE_ME */

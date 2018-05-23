@@ -5,6 +5,8 @@ static SEXP TABIXFILE_TAG = NULL;
 
 static const int TBX_INIT_SIZE = 32767;
 
+#ifdef MIGRATE_ME
+
 static void _tabixfile_close(SEXP ext)
 {
     _TABIX_FILE *tfile = TABIXFILE(ext);
@@ -26,11 +28,15 @@ static void _tabixfile_finalizer(SEXP ext)
     R_SetExternalPtrAddr(ext, NULL);
 }
 
+#endif  /* MIGRATE_ME */
+
 SEXP tabixfile_init()
 {
     TABIXFILE_TAG = install("TabixFile");
     return R_NilValue;
 }
+
+#ifdef MIGRATE_ME
 
 SEXP tabixfile_open(SEXP filename, SEXP indexname)
 {
@@ -358,3 +364,5 @@ SEXP scan_tabix(SEXP ext, SEXP space, SEXP yield, SEXP fun,
     UNPROTECT(1);
     return result;
 }
+
+#endif  /* MIGRATE_ME */

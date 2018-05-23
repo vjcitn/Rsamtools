@@ -1,8 +1,14 @@
-#include "samtools/khash.h"
-#include "samtools/sam.h"
+#include "khash.h"
+#include "sam.h"
 #include "bamfile.h"
+
+#ifdef MIGRATE_ME
+
 #include "bam_data.h"
 #include "scan_bam_data.h"
+
+#endif  /* MIGRATE_ME */
+
 #include "utilities.h"
 
 #define BAM_PARSE_STATUS_OK 0
@@ -10,6 +16,8 @@
 static const int BAM_INIT_SIZE = 1048576;
 
 enum { CIGAR_SIMPLE = 1 };
+
+#ifdef MIGRATE_ME
 
 /* _BAM_DATA */
 
@@ -133,6 +141,8 @@ static const char *_map(khash_t(str) * h, const char *s)
     return kh_key(h, k);
 }
 
+#endif  /* MIGRATE_ME */
+
 static int _bamcigar(const uint32_t * cigar, const uint32_t n_cigar, char *buf,
                      int buf_sz)
 {
@@ -203,6 +213,8 @@ static SEXP _bamtags_B(uint8_t *s) {
     return tag_B;
 }
 
+#ifdef MIGRATE_ME
+
 static void _bamtags(const bam1_t * bam, BAM_DATA bd, SEXP tags)
 {
     SCAN_BAM_DATA sbd = (SCAN_BAM_DATA) bd->extra;
@@ -265,12 +277,9 @@ static void _bamtags(const bam1_t * bam, BAM_DATA bd, SEXP tags)
             INTEGER(tag)[idx] = bam_aux2i(aux);
             break;
         case 'f':
-            _tag_type_check(tagname, tag, REALSXP);
-            REAL(tag)[idx] = (double) bam_aux2f(aux);
-            break;
         case 'd':
             _tag_type_check(tagname, tag, REALSXP);
-            REAL(tag)[idx] = bam_aux2d(aux);
+            REAL(tag)[idx] = bam_aux2f(aux);
             break;
         case 'A':
             _tag_type_check(tagname, tag, STRSXP);
@@ -447,3 +456,4 @@ void _finish1range_BAM_DATA(BAM_DATA  bd)
     _finish1range_SCAN_BAM_DATA(sbd, header, bd->irange);
 }
 
+#endif  /* MIGRATE_ME */

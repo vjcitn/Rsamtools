@@ -1,15 +1,24 @@
 #include "bamfile.h"
+
+#ifdef MIGRATE_ME
+
 #include "io_sam.h"
 #include "bam_mate_iter.h"
+
+#endif  /* MIGRATE_ME */
+
 #include "utilities.h"
 
 SEXP BAMFILE_TAG = NULL;
+
 #define TYPE_BAM 1
 
 void _check_isbamfile(SEXP ext, const char *lbl)
 {
     _checkext(ext, BAMFILE_TAG, lbl);
 }
+
+#ifdef MIGRATE_ME
 
 samfile_t *_bam_tryopen(const char *filename, const char *filemode, void *aux)
 {
@@ -58,11 +67,15 @@ static void _bamfile_finalizer(SEXP ext)
     R_SetExternalPtrAddr(ext, NULL);
 }
 
+#endif  /* MIGRATE_ME */
+
 SEXP bamfile_init()
 {
     BAMFILE_TAG = install("BamFile");
     return R_NilValue;
 }
+
+#ifdef MIGRATE_ME
 
 static BAM_FILE _bamfile_open_r(SEXP filename, SEXP indexname, SEXP filemode)
 {
@@ -256,3 +269,4 @@ SEXP filter_bamfile(SEXP ext, SEXP space, SEXP keepFlags, SEXP isSimpleCigar,
     return result;
 }
 
+#endif  /* MIGRATE_ME */

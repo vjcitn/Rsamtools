@@ -1,5 +1,5 @@
-#include "samtools/bam.h"
-#include "samtools/khash.h"
+#include "sam.h"
+#include "khash.h"
 #include "pileupbam.h"
 #include "bamfile.h"
 #include "utilities.h"
@@ -11,6 +11,8 @@ typedef enum {
 #define WHAT_OK 0
 #define WHAT_SEQ 1
 #define WHAT_QUAL 2
+
+#ifdef MIGRATE_ME
 
 typedef struct {
     BAM_FILE bfile;
@@ -27,6 +29,8 @@ typedef struct {
     const bam_pileup1_t **plp;
     bam_mplp_t mplp_iter;
 } PILEUP_ITER_T;
+
+#endif  /* MIGRATE_ME */
 
 typedef struct {
     const char *chr;
@@ -60,6 +64,8 @@ KHASH_MAP_INIT_STR(s, int)
 
 const int QUAL_LEVELS = 94,     /* printable ASCII */
     SEQ_LEVELS = 5;             /* A, C, G, T, N */
+
+#ifdef MIGRATE_ME
 
 static void _bam_header_hash_init(bam_header_t * header)
 {
@@ -722,3 +728,5 @@ SEXP apply_pileups(SEXP files, SEXP names, SEXP space, SEXP param,
 
     return result;
 }
+
+#endif  /* MIGRATE_ME */

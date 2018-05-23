@@ -1,29 +1,49 @@
 #include <R_ext/Rdynload.h>
+
+#ifdef MIGRATE_ME
+
 #include "zip_compression.h"
+
+#endif  /* MIGRATE_ME */
+
 #include "utilities.h"
 #include "bamfile.h"
 #include "bcffile.h"
 #include "fafile.h"
 #include "tabixfile.h"
 #include "io_sam.h"
+
+#ifdef MIGRATE_ME
+
 #include "idxstats.h"
 #include "as_bam.h"
 #include "pileupbam.h"
 #include "pileup.h"
 
+#endif  /* MIGRATE_ME */
+
 #ifdef _WIN32
-#include "samtools/knetfile.h"
+#include "knetfile.h"
 #endif
 
 static const R_CallMethodDef callMethods[] = {
+
+#ifdef MIGRATE_ME
+
     /* zip_compression.c */
     {".bgzip", (DL_FUNC) & bgzip, 2},
     {".razip", (DL_FUNC) & razip, 2},
     /* utilities.c */
     {".p_pairing", (DL_FUNC) & p_pairing, 12},
     {".find_mate_within_groups", (DL_FUNC) & find_mate_within_groups, 6},
+
+#endif  /* MIGRATE_ME */
+
     /* bamfile.c */
     {".bamfile_init", (DL_FUNC) & bamfile_init, 0},
+
+#ifdef MIGRATE_ME
+
     {".bamfile_open", (DL_FUNC) & bamfile_open, 3},
     {".bamfile_close", (DL_FUNC) & bamfile_close, 1},
     {".bamfile_isopen", (DL_FUNC) & bamfile_isopen, 1},
@@ -42,8 +62,14 @@ static const R_CallMethodDef callMethods[] = {
     {".sort_bam", (DL_FUNC) & sort_bam, 4},
     {".merge_bam", (DL_FUNC) & merge_bam, 8},
     {".index_bam", (DL_FUNC) & index_bam, 1},
+
+#endif  /* MIGRATE_ME */
+
     /* bcffile.c */
     {".bcffile_init", (DL_FUNC) & bcffile_init, 0},
+
+#ifdef MIGRATE_ME
+
     {".bcffile_open", (DL_FUNC) & bcffile_open, 3},
     {".bcffile_close", (DL_FUNC) & bcffile_close, 1},
     {".bcffile_isopen", (DL_FUNC) & bcffile_isopen, 1},
@@ -52,16 +78,28 @@ static const R_CallMethodDef callMethods[] = {
     {".scan_bcf", (DL_FUNC) & scan_bcf, 3},
     {".as_bcf", (DL_FUNC) & as_bcf, 3},
     {".index_bcf", (DL_FUNC) & index_bcf, 1},
+
+#endif  /* MIGRATE_ME */
+
     /* fafile.c */
     {".fafile_init", (DL_FUNC) & fafile_init, 0},
+
+#ifdef MIGRATE_ME
+
     {".fafile_open", (DL_FUNC) & fafile_open, 2},
     {".fafile_close", (DL_FUNC) & fafile_close, 1},
     {".fafile_isopen", (DL_FUNC) & fafile_isopen, 1},
     {".index_fa", (DL_FUNC) & index_fa, 1},
     {".n_fa", (DL_FUNC) & n_fa, 1},
     {".scan_fa", (DL_FUNC) & scan_fa, 6},
+
+#endif  /* MIGRATE_ME */
+
     /* tabixfile */
     {".tabixfile_init", (DL_FUNC) & tabixfile_init, 0},
+
+#ifdef MIGRATE_ME
+
     {".tabixfile_open", (DL_FUNC) & tabixfile_open, 2},
     {".tabixfile_close", (DL_FUNC) & tabixfile_close, 1},
     {".tabixfile_isopen", (DL_FUNC) & tabixfile_isopen, 1},
@@ -72,8 +110,14 @@ static const R_CallMethodDef callMethods[] = {
     {".tabix_count", (DL_FUNC) & tabix_count, 5},
     /* pileupbam */
     {".apply_pileups", (DL_FUNC) & apply_pileups, 5},
+
+#endif  /* MIGRATE_ME */
+
     /* bambuffer */
     {".bambuffer_init", (DL_FUNC) & bambuffer_init, 0},
+
+#ifdef MIGRATE_ME
+
     {".bambuffer", (DL_FUNC) & bambuffer, 1},
     {".bambuffer_length", (DL_FUNC) & bambuffer_length, 1},
     {".bambuffer_parse", (DL_FUNC) & bambuffer_parse, 9},
@@ -81,6 +125,9 @@ static const R_CallMethodDef callMethods[] = {
     {".bambuffer_reset", (DL_FUNC) & bambuffer_reset, 1},
     /* pileup */
     {".c_Pileup", (DL_FUNC) & c_Pileup, 14},
+
+#endif  /* MIGRATE_ME */
+
     {NULL, NULL, 0}
 };
 

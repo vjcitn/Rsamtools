@@ -1,7 +1,7 @@
 #include <string.h>
 #include <errno.h>
-#include "samtools/kstring.h"
-#include "bcftools/bcf.h"
+#include "kstring.h"
+#include "vcf.h"
 #include "bcffile.h"
 #include "utilities.h"
 
@@ -31,7 +31,10 @@ enum {
 };
 
 static SEXP BCFFILE_TAG = NULL;
+
 static const int BCF_BUFSIZE_GROW = 100000;	/* initial # records */
+
+#ifdef MIGRATE_ME
 
 static bcf_t *_bcf_tryopen(const char *fname, const char *mode)
 {
@@ -77,11 +80,15 @@ static void _bcffile_finalizer(SEXP ext)
     R_SetExternalPtrAddr(ext, NULL);
 }
 
+#endif  /* MIGRATE_ME */
+
 SEXP bcffile_init()
 {
     BCFFILE_TAG = install("BcfFile");
     return R_NilValue;
 }
+
+#ifdef MIGRATE_ME
 
 SEXP bcffile_open(SEXP filename, SEXP indexname, SEXP filemode)
 {
@@ -515,3 +522,5 @@ SEXP index_bcf(SEXP file)
     sprintf(fidx, "%s.bci", fbcf);
     return mkString(fidx);
 }
+
+#endif  /* MIGRATE_ME */

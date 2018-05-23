@@ -1,6 +1,8 @@
 #ifndef _UTILITIES_H_
 #define _UTILITIES_H_
 
+#include <Rdefines.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif

@@ -3,7 +3,12 @@
 #include <zlib.h>
 #include "zip_compression.h"
 #include "bgzf.h"
+
+#ifdef MIGRATE_ME
+
 #include "razf.h"
+
+#endif  /* MIGRATE_ME */
 
 void _zip_error(const char *txt, const char *err, int infd, int outfd)
 {
@@ -11,6 +16,8 @@ void _zip_error(const char *txt, const char *err, int infd, int outfd)
     close(outfd);
     err ? Rf_error(txt, err) : Rf_error(txt);
 }
+
+#ifdef MIGRATE_ME
 
 void _zip_open(SEXP file, SEXP dest, int *infd, int *outfd)
 {
@@ -100,3 +107,5 @@ SEXP razip(SEXP file, SEXP dest)
 
     return dest;
 }
+
+#endif  /* MIGRATE_ME */

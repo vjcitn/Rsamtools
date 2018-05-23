@@ -1,5 +1,7 @@
-#include "samtools/sam.h"
+#include "sam.h"
 #include "bamfile.h"
+
+#ifdef MIGRATE_ME
 
 int _as_bam(samfile_t * fin, samfile_t * fout)
 {
@@ -54,3 +56,5 @@ SEXP as_bam(SEXP file, SEXP destination, SEXP binary)
 
     return destination;
 }
+
+#endif  /* MIGRATE_ME */
