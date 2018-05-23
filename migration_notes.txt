@@ -37,10 +37,10 @@ samtools functions used in Rsamtools 1.33.0
   bam1_cigar          (bam.h)      NO -- now bam_get_cigar? (htslib/sam.h)
   bam1_qname          (bam.h)      NO -- seems simple
   bam_cigar2qlen      (bam.h)      YES
-  bam_tell            (bam.h)      NO -- now bgzf_tell? (htslib/bgzf.h)
-  bam_open            (bam.h)      NO -- now bgzf_open? (htslib/bgzf.h)
-  bam_read            (bam.h)      NO -- now bgzf_read? (htslib/bgzf.h)
-  bam_seek            (bam.h)      NO -- now bgzf_seek? (htslib/bgzf.h)
+  bam_tell            (bam.h)      NO -- now bgzf_tell (htslib/bgzf.h)
+  bam_open            (bam.h)      NO -- now bgzf_open (htslib/bgzf.h)
+  bam_read            (bam.h)      NO -- now bgzf_read (htslib/bgzf.h)
+  bam_seek            (bam.h)      NO -- now bgzf_seek (htslib/bgzf.h)
   bam_header_read     (bam.h)      NO
   bam_header_destory  (bam.h)      NO
   bam_read1           (bam.h)      YES
@@ -65,11 +65,6 @@ samtools functions used in Rsamtools 1.33.0
   BAM_FUNMAP          (bam.h)      YES
   BAM_FMUNMAP         (bam.h)      YES
 
-  samopen             (sam.h)      NO -- now sam_open?   (htslib/sam.h)
-  samclose            (sam.h)      NO -- now sam_close?  (htslib/sam.h)
-  samread             (sam.h)      NO -- now sam_read1?  (htslib/sam.h)
-  samwrite            (sam.h)      NO -- now sam_write1? (htslib/sam.h)
-
   vcf_hdr_read        (bcf.h)      YES
   vcf_read            (bcf.h)      YES
   vcf_hdr_write       (bcf.h)      YES
@@ -90,9 +85,8 @@ bam_init1 function):
 
     find . -type d -name '.git' -prune -o -type f -name '*.h' -exec grep -Hw 'bam_init1' {} \;
 
-Run the above command twice, once in Rsamtools/src and once in
-Rhtslib/src/htslib-1.7 to find the header file in Rsamtools and in htslib-1.7,
-respectively.
+Run the above command twice, once in Rsamtools/src and once in Rhtslib to
+find the header file in Rsamtools and in htslib/samtools 1.7, respectively.
 
 We might also run into data structure changes. They should only create problems
 if Rsamtools C/C++ code access members that have changed e.g. have been
@@ -101,20 +95,20 @@ removed, renamed, or their type has changed.
 Migration status, file by file
 ------------------------------
 
-C files (17 files, ignoring bam.c, sam.c, and bam_plbuf.c and the
-*_stubs.c files):
+C files (17 files, ignoring bam.c, bam_plbuf.c, bam_sort.c, sam.c, sam_opts.c,
+sam_utils.c, and the *_stubs.c files):
 
   File                 Status            Assigned to
   -------------------  ----------------  -----------
   as_bam.c             done
   bambuffer.c          TO DO
   bam_data.c           done
-  bamfile.c            TO DO
+  bamfile.c            done
   bcffile.c            TO DO
   encode.c             nothing to do
   fafile.c             TO DO
   idxstats.c           TO DO
-  io_sam.c             TO DO
+  io_sam.c             done
   pileupbam.c          TO DO
   R_init_Rsamtools.c   TO DO
   samtools_patch.c     nothing to do

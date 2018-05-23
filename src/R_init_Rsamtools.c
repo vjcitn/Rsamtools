@@ -31,37 +31,35 @@ static const R_CallMethodDef callMethods[] = {
     /* utilities.c */
     {".p_pairing", (DL_FUNC) & p_pairing, 12},
     {".find_mate_within_groups", (DL_FUNC) & find_mate_within_groups, 6},
-    /* bamfile.c */
 
 #endif  /* MIGRATE_ME */
 
+    /* bamfile.c */
     {".bamfile_init", (DL_FUNC) & bamfile_init, 0},
-
-#ifdef MIGRATE_ME
-
     {".bamfile_open", (DL_FUNC) & bamfile_open, 3},
     {".bamfile_close", (DL_FUNC) & bamfile_close, 1},
-
-#endif  /* MIGRATE_ME */
-
     {".bamfile_isopen", (DL_FUNC) & bamfile_isopen, 1},
 
 #ifdef MIGRATE_ME
 
     {".bamfile_isincomplete", (DL_FUNC) & bamfile_isincomplete, 1},
-    {".read_bamfile_header", (DL_FUNC) & read_bamfile_header, 2},
-    {".scan_bamfile", (DL_FUNC) & scan_bamfile, 13},
-    {".idxstats_bamfile", (DL_FUNC) & idxstats_bamfile, 1},
-    {".count_bamfile", (DL_FUNC) & count_bamfile, 6},
-    {".prefilter_bamfile", (DL_FUNC) & prefilter_bamfile, 11},
-    {".filter_bamfile", (DL_FUNC) & filter_bamfile, 8},
 
 #endif  /* MIGRATE_ME */
 
+    {".read_bamfile_header", (DL_FUNC) & read_bamfile_header, 2},
+    {".scan_bamfile", (DL_FUNC) & scan_bamfile, 13},
+    {".count_bamfile", (DL_FUNC) & count_bamfile, 6},
+    {".prefilter_bamfile", (DL_FUNC) & prefilter_bamfile, 11},
+    {".filter_bamfile", (DL_FUNC) & filter_bamfile, 8},
     /* as_bam.c */
     {".as_bam", (DL_FUNC) & as_bam, 3},
 
 #ifdef MIGRATE_ME
+
+    /* idxstats.c */
+    {".idxstats_bamfile", (DL_FUNC) & idxstats_bamfile, 1},
+
+#endif  /* MIGRATE_ME */
 
     /* io_sam.c */
     {".scan_bam_template", (DL_FUNC) & scan_bam_template, 2},
@@ -69,9 +67,6 @@ static const R_CallMethodDef callMethods[] = {
     {".sort_bam", (DL_FUNC) & sort_bam, 4},
     {".merge_bam", (DL_FUNC) & merge_bam, 8},
     {".index_bam", (DL_FUNC) & index_bam, 1},
-
-#endif  /* MIGRATE_ME */
-
     /* bcffile.c */
     {".bcffile_init", (DL_FUNC) & bcffile_init, 0},
 

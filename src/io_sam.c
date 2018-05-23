@@ -25,8 +25,6 @@ static const char *TMPL_ELT_NMS[] = {
 
 static const int N_TMPL_ELTS = sizeof(TMPL_ELT_NMS) / sizeof(const char *);
 
-#ifdef MIGRATE_ME
-
 /* utility */
 
 void _check_is_bam(const char *filename)
@@ -38,7 +36,7 @@ void _check_is_bam(const char *filename)
     if (bfile == 0)
         Rf_error("failed to open SAM/BAM file\n  file: '%s'", filename);
 
-    magic_len = bam_read(bfile, buf, 4);
+    magic_len = bgzf_read(bfile, buf, 4);
     bam_close(bfile);
 
     if (magic_len != 4 || strncmp(buf, "BAM\001", 4) != 0)
@@ -58,8 +56,6 @@ void _bam_check_template_list(SEXP template_list)
         if (strcmp(TMPL_ELT_NMS[i], CHAR(STRING_ELT(names, i))) != 0)
             Rf_error("'template' names do not match scan_bam_template\n'");
 }
-
-#endif  /* MIGRATE_ME */
 
 static SEXP _tmpl_strand()
 {
@@ -682,8 +678,6 @@ _filter_bam(SEXP bfile, SEXP space, SEXP keepFlags,
 #define MERGE_LEVEL1 4
 #define MERGE_FORCE  8
 
-#ifdef MIGRATE_ME
-
 int bam_merge_core(int by_qname, const char *out, const char *headers,
                    int n, char * const *fn, int flag, const char *reg);
 
@@ -781,5 +775,3 @@ SEXP index_bam(SEXP indexname)
     sprintf(fidx, "%s.bai", fbam);
     return mkString(fidx);
 }
-
-#endif  /* MIGRATE_ME */

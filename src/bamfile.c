@@ -4,7 +4,6 @@
 #include "utilities.h"
 
 SEXP BAMFILE_TAG = NULL;
-#define TYPE_BAM 1
 
 void _check_isbamfile(SEXP ext, const char *lbl)
 {
@@ -30,8 +29,6 @@ static bam_index_t *_bam_tryindexload(const char *indexname)
         Rf_error("failed to load BAM index\n  file: %s", indexname);
     return index;
 }
-
-#ifdef MIGRATE_ME
 
 static void _bamfile_close(SEXP ext)
 {
@@ -60,15 +57,11 @@ static void _bamfile_finalizer(SEXP ext)
     R_SetExternalPtrAddr(ext, NULL);
 }
 
-#endif  /* MIGRATE_ME */
-
 SEXP bamfile_init()
 {
     BAMFILE_TAG = install("BamFile");
     return R_NilValue;
 }
-
-#ifdef MIGRATE_ME
 
 static BAM_FILE _bamfile_open_r(SEXP filename, SEXP indexname, SEXP filemode)
 {
@@ -78,7 +71,7 @@ static BAM_FILE _bamfile_open_r(SEXP filename, SEXP indexname, SEXP filemode)
     if (0 != Rf_length(filename)) {
         const char *cfile = translateChar(STRING_ELT(filename, 0));
         bfile->file = _bam_tryopen(cfile, CHAR(STRING_ELT(filemode, 0)), 0);
-        if ((bfile->file->type & TYPE_BAM) != 1) {
+        if (hts_get_format(bfile->file->file)->format != bam) {
             samclose(bfile->file);
             Free(bfile);
             Rf_error("'filename' is not a BAM file\n  file: %s", cfile);
@@ -146,8 +139,6 @@ SEXP bamfile_close(SEXP ext)
     return ext;
 }
 
-#endif  /* MIGRATE_ME */
-
 SEXP bamfile_isopen(SEXP ext)
 {
     int ans = FALSE;
@@ -158,8 +149,6 @@ SEXP bamfile_isopen(SEXP ext)
     return ScalarLogical(ans);
 }
 
-#ifdef MIGRATE_ME
-
 SEXP bamfile_isincomplete(SEXP ext)
 {
     int ans = FALSE;
@@ -168,18 +157,16 @@ SEXP bamfile_isincomplete(SEXP ext)
         _checkext(ext, BAMFILE_TAG, "isIncomplete");
         bfile = BAMFILE(ext);
         if (NULL != bfile && NULL != bfile->file) {
-            /* heuristic: can we read a record? bam_seek does not
+            /* heuristic: can we read a record? bgzf_seek does not
              * support SEEK_END */
-            off_t offset = bam_tell(bfile->file->x.bam);
+            off_t offset = bgzf_tell(bfile->file->x.bam);
             char buf;
-            ans = bam_read(bfile->file->x.bam, &buf, 1) > 0;
-            bam_seek(bfile->file->x.bam, offset, SEEK_SET);
+            ans = bgzf_read(bfile->file->x.bam, &buf, 1) > 0;
+            bgzf_seek(bfile->file->x.bam, offset, SEEK_SET);
         }
     }
     return ScalarLogical(ans);
 }
-
-#endif  /* MIGRATE_ME */
 
 /* implementation */
 
@@ -192,8 +179,6 @@ SEXP read_bamfile_header(SEXP ext, SEXP what)
         Rf_error("open() BamFile before reading header");
     return _read_bam_header(ext, what);
 }
-
-#ifdef MIGRATE_ME
 
 SEXP scan_bamfile(SEXP ext, SEXP space, SEXP keepFlags, SEXP isSimpleCigar,
                   SEXP tagFilter, SEXP mapqFilter, SEXP reverseComplement,
@@ -217,8 +202,6 @@ SEXP scan_bamfile(SEXP ext, SEXP space, SEXP keepFlags, SEXP isSimpleCigar,
                      template_list, obeyQname, asMates, qnamePrefixEnd,
                      qnameSuffixStart);
 }
-
-#endif  /* MIGRATE_ME */
 
 SEXP count_bamfile(SEXP ext, SEXP space, SEXP keepFlags, SEXP isSimpleCigar,
                    SEXP tagFilter, SEXP mapqFilter)
