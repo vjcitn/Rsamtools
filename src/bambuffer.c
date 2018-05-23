@@ -1,14 +1,8 @@
 #include "Rdefines.h"
 #include "bamfile.h"
 #include "bambuffer.h"
-
-#ifdef MIGRATE_ME
-
 #include "bam_data.h"
 #include "scan_bam_data.h"
-
-#endif  /* MIGRATE_ME */
-
 #include "utilities.h"
 #include "io_sam.h"     /* _bam_check_template_list */
 
@@ -156,6 +150,8 @@ SEXP bambuffer_parse(SEXP ext, SEXP space, SEXP keepFlags, SEXP isSimpleCigar,
     return result;
 }
 
+#endif  /* MIGRATE_ME */
+
 SEXP bambuffer_write(SEXP bufext, SEXP bamext, SEXP filter)
 {
     BAM_BUFFER buf;
@@ -180,8 +176,6 @@ SEXP bambuffer_write(SEXP bufext, SEXP bamext, SEXP filter)
 
     return ScalarInteger(n);
 }
-
-#endif  /* MIGRATE_ME */
 
 SEXP bambuffer_reset(SEXP bufext)
 {

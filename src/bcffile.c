@@ -1,7 +1,7 @@
 #include <string.h>
 #include <errno.h>
-#include "kstring.h"
-#include "vcf.h"
+#include <htslib/kstring.h>
+#include <htslib/vcf.h>
 #include "bcffile.h"
 #include "utilities.h"
 

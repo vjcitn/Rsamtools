@@ -18,42 +18,32 @@ version of htslib is also 1.8.
 Note that a decently recent version of htslib (version 1.7) is wrapped in a
 Bioconductor package: Rhtslib
 
-samtools functions and data structures used in Rsamtools
---------------------------------------------------------
+samtools functions used in Rsamtools 1.33.0
+-------------------------------------------
 
-As a first pass, let's identify the subset of the old samtools API that is
-used by Rsamtools 1.33.0 and, for each symbol, report its status in htslib 1.7:
-
-  Used in Rsamtools                Status in htslib 1.7
+  Used in Rsamtools                Status in htslib/samtools 1.7
   -------------------------------  ----------------------------------------
-  bam_init1           (bam.h)      yes (sam.h)
-  bam_destroy1        (bam.h)      yes (sam.h)
-  bam_index_build     (bam.h)      yes (sam.h)
-  bam_index_load      (bam.h)      yes (sam.h)
+  bam_init1           (bam.h)      yes (htslib/sam.h)
+  bam_destroy1        (bam.h)      yes (htslib/sam.h)
+  bam_index_build     (bam.h)      yes (htslib/sam.h)
+  bam_index_load      (bam.h)      yes (htslib/sam.h)
   bam_index_destroy   (bam.h)      NO
-  bam_dup1            (bam.h)      yes (sam.h)
+  bam_dup1            (bam.h)      yes (htslib/sam.h)
 
-  samopen             (sam.h)      NO -- replaced with sam_open    (sam.h)
-  samclose            (sam.h)      NO -- replaced with sam_close   (sam.h)
-  samread             (sam.h)      NO -- replaced with sam_read1?  (sam.h)
-  samwrite            (sam.h)      NO -- replaced with sam_write1? (sam.h)
-
-  bam1_qual           (bam.h)      NO -- replaced with bam_get_qual? (sam.h)
-  bam1_strand         (bam.h)      NO -- replaced with bam_is_rev? (sam.h)
-  bam1_seq            (bam.h)      NO -- replaced with bam_get_seq (sam.h)
+  bam1_qual           (bam.h)      NO -- now bam_get_qual? (htslib/sam.h)
+  bam1_strand         (bam.h)      NO -- now bam_is_rev? (htslib/sam.h)
+  bam1_seq            (bam.h)      NO -- now bam_get_seq (htslib/sam.h)
   bam1_seqi           (bam.h)      NO -- probably implemented/easy to implment
-  bam1_cigar          (bam.h)      NO -- replaced with bam_get_cigar? (sam.h)
+  bam1_cigar          (bam.h)      NO -- now bam_get_cigar? (htslib/sam.h)
   bam1_qname          (bam.h)      NO -- seems simple
   bam_cigar2qlen      (bam.h)      YES
-  bam_tell            (bam.h)      NO -- replaced with bgzf_tell? (bgzf.h)
-  bam_open            (bam.h)      NO -- replaced with bgzf_open? (bgzf.h)
-  bam_read            (bam.h)      NO -- replaced with bgzf_read? (bgzf.h)
-  bam_seek            (bam.h)      NO -- replaced with bgzf_seek? (bgzf.h)
+  bam_tell            (bam.h)      NO -- now bgzf_tell? (htslib/bgzf.h)
+  bam_open            (bam.h)      NO -- now bgzf_open? (htslib/bgzf.h)
+  bam_read            (bam.h)      NO -- now bgzf_read? (htslib/bgzf.h)
+  bam_seek            (bam.h)      NO -- now bgzf_seek? (htslib/bgzf.h)
   bam_header_read     (bam.h)      NO
   bam_header_destory  (bam.h)      NO
   bam_read1           (bam.h)      YES
-  bam_init1           (bam.h)      YES
-  bam_dup1            (bam.h)      YES
   bam_get_tid         (bam.h)      NO
   bam_mplp_init       (bam.h)      YES
   bam_mplp_set_maxcnt (bam.h)      YES
@@ -63,18 +53,22 @@ used by Rsamtools 1.33.0 and, for each symbol, report its status in htslib 1.7:
   bam_mplp_destroy    (bam.h)      YES
   bam_aux2i           (bam.h)      YES
   bam_aux2A           (bam.h)      YES
-  bam_aux2d           (bam.h)      NO -- replaced with bam_aux2f
+  bam_aux2d           (bam.h)      NO -- now bam_aux2f (htslib/sam.h)
   bam_aux2f           (bam.h)      YES
   bam_aux2Z           (bam.h)      YES
   bam_plp_set_maxcont (bam.h)      YES
   bam_plbuf_init      (bam.h)      YES
   bam_aux_get         (bam.h)      YES
 
-  bgzf_seek           (bgzf.h)     YES
-  bgzf_tell           (bgzf.h)     YES
-  bgzf_dopen          (bgzf.h)     YES
-  bgzf_close          (bgzf.h)     YES
-  bgzf_write          (bgzf.h)     YES
+  BAM_CIGAR_STR       (bam.h)      YES
+  BAM_CIGAR_MASK      (bam.h)      YES
+  BAM_FUNMAP          (bam.h)      YES
+  BAM_FMUNMAP         (bam.h)      YES
+
+  samopen             (sam.h)      NO -- now sam_open?   (htslib/sam.h)
+  samclose            (sam.h)      NO -- now sam_close?  (htslib/sam.h)
+  samread             (sam.h)      NO -- now sam_read1?  (htslib/sam.h)
+  samwrite            (sam.h)      NO -- now sam_write1? (htslib/sam.h)
 
   vcf_hdr_read        (bcf.h)      YES
   vcf_read            (bcf.h)      YES
@@ -90,22 +84,6 @@ used by Rsamtools 1.33.0 and, for each symbol, report its status in htslib 1.7:
   bcf_idx_query       (bcf.h)      NO
 
   faidx_fetch_seq2    (faidx.h)    NO
-
-  khash_t             (khash.h)    YES
-  kh_get              (khash.h)    YES
-  kh_begin            (khash.h)    YES
-  kh_end              (khash.h)    YES
-  kh_put              (khash.h)    YES
-  kh_val              (khash.h)    YES
-  kh_value            (khash.h)    YES
-  kh_destroy          (khash.h)    YES
-  kh_exist            (khash.h)    YES
-
-  BAM_CIGAR_STR       (bam.h)      YES
-  BAM_CIGAR_MASK      (bam.h)      YES
-  BAM_FUNMAP          (bam.h)      YES
-  BAM_FMUNMAP         (bam.h)      YES
-
 
 Tip: To find the header files where a samtools function is defined (e.g. the
 bam_init1 function):
@@ -123,13 +101,14 @@ removed, renamed, or their type has changed.
 Migration status, file by file
 ------------------------------
 
-C files (17 files, ignoring the *_stubs.c files):
+C files (17 files, ignoring bam.c, sam.c, and bam_plbuf.c and the
+*_stubs.c files):
 
   File                 Status            Assigned to
   -------------------  ----------------  -----------
-  as_bam.c             TO DO
+  as_bam.c             done
   bambuffer.c          TO DO
-  bam_data.c           TO DO
+  bam_data.c           done
   bamfile.c            TO DO
   bcffile.c            TO DO
   encode.c             nothing to do
@@ -149,10 +128,10 @@ C++ files (6 files):
 
   File                 Status            Assigned to
   -------------------  ----------------  -----------
-  bam_mate_iter.cpp    TO DO
+  bam_mate_iter.cpp    done
   pbuffer_wrapper.cpp  nothing to do
-  PileupBuffer.cpp     TO DO
-  pileup.cpp           TO DO
+  PileupBuffer.cpp     done
+  pileup.cpp           done
   PosCacheColl.cpp     nothing to do
   ResultManager.cpp    nothing to do
 

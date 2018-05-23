@@ -1,5 +1,5 @@
-#include "sam.h"
-#include "khash.h"
+#include <sam.h>
+#include <htslib/khash.h>
 #include "pileupbam.h"
 #include "bamfile.h"
 #include "utilities.h"

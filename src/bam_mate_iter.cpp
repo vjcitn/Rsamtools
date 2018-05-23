@@ -1,7 +1,4 @@
 #include <Rdefines.h>
-
-#ifdef MIGRATE_ME
-
 #include "BamRangeIterator.h"
 #include "BamFileIterator.h"
 #include "bam_mate_iter.h"
@@ -118,5 +115,3 @@ int samread_mate(bamFile bfile, const bam_index_t *bindex,
 #ifdef __cplusplus
 }
 #endif
-
-#endif  /* MIGRATE_ME */

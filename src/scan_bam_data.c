@@ -1,8 +1,6 @@
 #include "scan_bam_data.h"
 #include "utilities.h"
 
-#ifdef MIGRATE_ME
-
 /* _SCAN_BAM_DATA */
 
 SCAN_BAM_DATA _init_SCAN_BAM_DATA(SEXP result)
@@ -14,8 +12,6 @@ SCAN_BAM_DATA _init_SCAN_BAM_DATA(SEXP result)
     sbd->partition_id = 0;
     return sbd;
 }
-
-#endif  /* MIGRATE_ME */
 
 static void _Free_strhash(khash_t(str) * h)
 {
@@ -65,8 +61,6 @@ static void _grow_SCAN_BAM_DATA_tags(SEXP tags, int len)
         }
     }
 }
-
-#ifdef MIGRATE_ME
 
 int _grow_SCAN_BAM_DATA(BAM_DATA bd, int len)
 {
@@ -280,5 +274,3 @@ void _finish1range_SCAN_BAM_DATA(SCAN_BAM_DATA sbd, bam_header_t *header,
     sbd->icnt = sbd->ncnt = 0;
     sbd->mates_flag = NA_LOGICAL;
 }
-
-#endif  /* MIGRATE_ME */

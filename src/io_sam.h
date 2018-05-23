@@ -2,12 +2,7 @@
 #define _IO_SAM_H_
 
 #include <Rinternals.h>
-
-#ifdef MIGRATE_ME
-
 #include "bam_data.h"
-
-#endif  /* MIGRATE_ME */
 
 #ifdef __cplusplus
 extern "C" {
@@ -39,13 +34,10 @@ SEXP _filter_bam(SEXP bfile, SEXP space, SEXP keepFlags,
                  SEXP isSimpleCigar, SEXP tagFilter, SEXP mapqFilter,
                  SEXP fout_name, SEXP fout_mode);
 
-#ifdef MIGRATE_ME
-
 typedef void (_FINISH1_FUNC) (BAM_DATA);
 int _do_scan_bam(BAM_DATA bd, SEXP space, bam_fetch_f parse1,
                  bam_fetch_mate_f parse1_mate, _FINISH1_FUNC finish1);
 
-#endif  /* MIGRATE_ME */
 
 #ifdef __cplusplus
 }

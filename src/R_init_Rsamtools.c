@@ -12,15 +12,10 @@
 #include "fafile.h"
 #include "tabixfile.h"
 #include "io_sam.h"
-
-#ifdef MIGRATE_ME
-
 #include "idxstats.h"
 #include "as_bam.h"
 #include "pileupbam.h"
 #include "pileup.h"
-
-#endif  /* MIGRATE_ME */
 
 #ifdef _WIN32
 #include "knetfile.h"
@@ -36,17 +31,23 @@ static const R_CallMethodDef callMethods[] = {
     /* utilities.c */
     {".p_pairing", (DL_FUNC) & p_pairing, 12},
     {".find_mate_within_groups", (DL_FUNC) & find_mate_within_groups, 6},
+    /* bamfile.c */
 
 #endif  /* MIGRATE_ME */
 
-    /* bamfile.c */
     {".bamfile_init", (DL_FUNC) & bamfile_init, 0},
 
 #ifdef MIGRATE_ME
 
     {".bamfile_open", (DL_FUNC) & bamfile_open, 3},
     {".bamfile_close", (DL_FUNC) & bamfile_close, 1},
+
+#endif  /* MIGRATE_ME */
+
     {".bamfile_isopen", (DL_FUNC) & bamfile_isopen, 1},
+
+#ifdef MIGRATE_ME
+
     {".bamfile_isincomplete", (DL_FUNC) & bamfile_isincomplete, 1},
     {".read_bamfile_header", (DL_FUNC) & read_bamfile_header, 2},
     {".scan_bamfile", (DL_FUNC) & scan_bamfile, 13},
@@ -54,8 +55,14 @@ static const R_CallMethodDef callMethods[] = {
     {".count_bamfile", (DL_FUNC) & count_bamfile, 6},
     {".prefilter_bamfile", (DL_FUNC) & prefilter_bamfile, 11},
     {".filter_bamfile", (DL_FUNC) & filter_bamfile, 8},
+
+#endif  /* MIGRATE_ME */
+
     /* as_bam.c */
     {".as_bam", (DL_FUNC) & as_bam, 3},
+
+#ifdef MIGRATE_ME
+
     /* io_sam.c */
     {".scan_bam_template", (DL_FUNC) & scan_bam_template, 2},
     {".scan_bam_cleanup", (DL_FUNC) & scan_bam_cleanup, 0},
@@ -123,11 +130,11 @@ static const R_CallMethodDef callMethods[] = {
     {".bambuffer_parse", (DL_FUNC) & bambuffer_parse, 9},
     {".bambuffer_write", (DL_FUNC) & bambuffer_write, 3},
     {".bambuffer_reset", (DL_FUNC) & bambuffer_reset, 1},
-    /* pileup */
-    {".c_Pileup", (DL_FUNC) & c_Pileup, 14},
 
 #endif  /* MIGRATE_ME */
 
+    /* pileup */
+    {".c_Pileup", (DL_FUNC) & c_Pileup, 14},
     {NULL, NULL, 0}
 };
 

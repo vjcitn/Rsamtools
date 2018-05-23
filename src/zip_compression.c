@@ -2,7 +2,7 @@
 #include <errno.h>
 #include <zlib.h>
 #include "zip_compression.h"
-#include "bgzf.h"
+#include <htslib/bgzf.h>
 
 #ifdef MIGRATE_ME
 

@@ -2,21 +2,14 @@
 #define BAMFILE_H
 
 #include <Rdefines.h>
-#include "sam.h"
+#include <sam.h>
 #include "bambuffer.h"
-
-#ifdef MIGRATE_ME
-
 #include "bam_mate_iter.h"
 #include "pbuffer_wrapper.h"
-
-#endif  /* MIGRATE_ME */
 
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-#ifdef MIGRATE_ME
 
 typedef struct {
     samfile_t *file;
@@ -27,14 +20,9 @@ typedef struct {
     void *pbuffer; /* for buffered pileup */
 } _BAM_FILE, *BAM_FILE;
 
-#endif  /* MIGRATE_ME */
-
 #define BAMFILE(b) ((BAM_FILE) R_ExternalPtrAddr(b))
 
 SEXP bamfile_init();
-
-#ifdef MIGRATE_ME
-
 SEXP bamfile_open(SEXP file0, SEXP file1, SEXP mode);
 SEXP bamfile_close(SEXP ext);
 SEXP bamfile_isopen(SEXP ext);
@@ -63,7 +51,5 @@ samfile_t *_bam_tryopen(const char *filename, const char *mode, void *aux);
 #ifdef __cplusplus
 }
 #endif
-
-#endif  /* MIGRATE_ME */
 
 #endif

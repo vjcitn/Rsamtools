@@ -1,30 +1,19 @@
-#include "khash.h"
-#include "sam.h"
+#include <htslib/khash.h>
+#include <sam.h>
 #include "bam_data.h"
-
-#ifdef MIGRATE_ME
-
 #include "scan_bam_data.h"
 #include "io_sam.h"
-
-#endif  /* MIGRATE_ME */
-
 #include "bamfile.h"
 #include "encode.h"
 #include "utilities.h"
 #include "S4Vectors_interface.h"
 #include "XVector_interface.h"
 #include "Biostrings_interface.h"
-
-#ifdef MIGRATE_ME
-
 #include "bam_mate_iter.h"
 
 /* from samtoools/bam_sort.c */
 void bam_sort_core(int is_by_qname, const char *fn, const char *prefix,
                    size_t max_mem);
-
-#endif  /* MIGRATE_ME */
 
 #define SEQUENCE_BUFFER_ALLOCATION_ERROR 1
 
@@ -36,9 +25,9 @@ static const char *TMPL_ELT_NMS[] = {
 
 static const int N_TMPL_ELTS = sizeof(TMPL_ELT_NMS) / sizeof(const char *);
 
-/* utility */
-
 #ifdef MIGRATE_ME
+
+/* utility */
 
 void _check_is_bam(const char *filename)
 {
@@ -56,8 +45,6 @@ void _check_is_bam(const char *filename)
         Rf_error("'filename' is not a BAM file\n  file: %s", filename);
 }
 
-#endif  /* MIGRATE_ME */
-
 /* template */
 
 void _bam_check_template_list(SEXP template_list)
@@ -71,6 +58,8 @@ void _bam_check_template_list(SEXP template_list)
         if (strcmp(TMPL_ELT_NMS[i], CHAR(STRING_ELT(names, i))) != 0)
             Rf_error("'template' names do not match scan_bam_template\n'");
 }
+
+#endif  /* MIGRATE_ME */
 
 static SEXP _tmpl_strand()
 {
@@ -146,8 +135,6 @@ SEXP scan_bam_template(SEXP rname, SEXP tag)
 }
 
 /* header */
-
-#ifdef MIGRATE_ME
 
 SEXP _read_bam_header(SEXP ext, SEXP what)
 {
@@ -694,6 +681,8 @@ _filter_bam(SEXP bfile, SEXP space, SEXP keepFlags,
 #define MERGE_RG     1
 #define MERGE_LEVEL1 4
 #define MERGE_FORCE  8
+
+#ifdef MIGRATE_ME
 
 int bam_merge_core(int by_qname, const char *out, const char *headers,
                    int n, char * const *fn, int flag, const char *reg);

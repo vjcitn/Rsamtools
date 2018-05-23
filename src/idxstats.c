@@ -1,7 +1,7 @@
 #include "bamfile.h"
 #include "utilities.h"          /* _checkext */
-#include "khash.h"
-#include "ksort.h"
+#include <htslib/khash.h>
+#include <htslib/ksort.h>
 
 extern SEXP BAMFILE_TAG;
 

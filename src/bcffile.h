@@ -2,7 +2,7 @@
 #define _BCFFILE_H_
 
 #include <Rdefines.h>
-#include "vcf.h"
+#include <htslib/vcf.h>
 
 #ifdef MIGRATE_ME
 

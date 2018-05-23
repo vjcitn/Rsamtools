@@ -1,24 +1,15 @@
 #include "bamfile.h"
-
-#ifdef MIGRATE_ME
-
 #include "io_sam.h"
 #include "bam_mate_iter.h"
-
-#endif  /* MIGRATE_ME */
-
 #include "utilities.h"
 
 SEXP BAMFILE_TAG = NULL;
-
 #define TYPE_BAM 1
 
 void _check_isbamfile(SEXP ext, const char *lbl)
 {
     _checkext(ext, BAMFILE_TAG, lbl);
 }
-
-#ifdef MIGRATE_ME
 
 samfile_t *_bam_tryopen(const char *filename, const char *filemode, void *aux)
 {
@@ -39,6 +30,8 @@ static bam_index_t *_bam_tryindexload(const char *indexname)
         Rf_error("failed to load BAM index\n  file: %s", indexname);
     return index;
 }
+
+#ifdef MIGRATE_ME
 
 static void _bamfile_close(SEXP ext)
 {
@@ -153,6 +146,8 @@ SEXP bamfile_close(SEXP ext)
     return ext;
 }
 
+#endif  /* MIGRATE_ME */
+
 SEXP bamfile_isopen(SEXP ext)
 {
     int ans = FALSE;
@@ -162,6 +157,8 @@ SEXP bamfile_isopen(SEXP ext)
     }
     return ScalarLogical(ans);
 }
+
+#ifdef MIGRATE_ME
 
 SEXP bamfile_isincomplete(SEXP ext)
 {
@@ -182,6 +179,8 @@ SEXP bamfile_isincomplete(SEXP ext)
     return ScalarLogical(ans);
 }
 
+#endif  /* MIGRATE_ME */
+
 /* implementation */
 
 SEXP read_bamfile_header(SEXP ext, SEXP what)
@@ -193,6 +192,8 @@ SEXP read_bamfile_header(SEXP ext, SEXP what)
         Rf_error("open() BamFile before reading header");
     return _read_bam_header(ext, what);
 }
+
+#ifdef MIGRATE_ME
 
 SEXP scan_bamfile(SEXP ext, SEXP space, SEXP keepFlags, SEXP isSimpleCigar,
                   SEXP tagFilter, SEXP mapqFilter, SEXP reverseComplement,
@@ -216,6 +217,8 @@ SEXP scan_bamfile(SEXP ext, SEXP space, SEXP keepFlags, SEXP isSimpleCigar,
                      template_list, obeyQname, asMates, qnamePrefixEnd,
                      qnameSuffixStart);
 }
+
+#endif  /* MIGRATE_ME */
 
 SEXP count_bamfile(SEXP ext, SEXP space, SEXP keepFlags, SEXP isSimpleCigar,
                    SEXP tagFilter, SEXP mapqFilter)
@@ -269,4 +272,3 @@ SEXP filter_bamfile(SEXP ext, SEXP space, SEXP keepFlags, SEXP isSimpleCigar,
     return result;
 }
 
-#endif  /* MIGRATE_ME */
