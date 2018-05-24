@@ -1,15 +1,9 @@
 #include <stdio.h>
 #include <errno.h>
 #include <zlib.h>
-#include "zip_compression.h"
+#include <fcntl.h>
 #include <htslib/bgzf.h>
-
-#ifdef MIGRATE_ME
-
-// MIGRATION NOTE: RAZF is no longer provided with SAMtools!
-#include "razf.h"
-
-#endif  /* MIGRATE_ME */
+#include "zip_compression.h"
 
 void _zip_error(const char *txt, const char *err, int infd, int outfd)
 {
@@ -17,8 +11,6 @@ void _zip_error(const char *txt, const char *err, int infd, int outfd)
     close(outfd);
     err ? Rf_error(txt, err) : Rf_error(txt);
 }
-
-#ifdef MIGRATE_ME
 
 void _zip_open(SEXP file, SEXP dest, int *infd, int *outfd)
 {
@@ -77,6 +69,11 @@ SEXP bgzip(SEXP file, SEXP dest)
 
     return dest;
 }
+
+#ifdef MIGRATE_ME
+
+// MIGRATION NOTE: RAZF is no longer provided with SAMtools!
+#include "razf.h"
 
 SEXP razip(SEXP file, SEXP dest)
 {

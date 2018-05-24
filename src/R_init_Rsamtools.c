@@ -1,11 +1,5 @@
 #include <R_ext/Rdynload.h>
-
-#ifdef MIGRATE_ME
-
 #include "zip_compression.h"
-
-#endif  /* MIGRATE_ME */
-
 #include "utilities.h"
 #include "bamfile.h"
 #include "bcffile.h"
@@ -23,10 +17,11 @@
 
 static const R_CallMethodDef callMethods[] = {
 
-#ifdef MIGRATE_ME
-
     /* zip_compression.c */
     {".bgzip", (DL_FUNC) & bgzip, 2},
+
+#ifdef MIGRATE_ME
+
     {".razip", (DL_FUNC) & razip, 2},
     /* utilities.c */
     {".p_pairing", (DL_FUNC) & p_pairing, 12},
