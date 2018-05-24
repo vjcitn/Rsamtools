@@ -116,7 +116,7 @@ sam_utils.c, and the *_stubs.c files):
   bcffile.c           TO DO           indexBcf() runs but is broken!
   encode.c            nothing to do
   fafile.c            done
-  idxstats.c          TO DO
+  idxstats.c          done
   io_sam.c            done
   pileupbam.c         done            applyPileups() runs but tests fail!
   R_init_Rsamtools.c  TO DO

@@ -2,12 +2,12 @@
 #include "zip_compression.h"
 #include "utilities.h"
 #include "bamfile.h"
+#include "as_bam.h"
+#include "idxstats.h"
+#include "io_sam.h"
 #include "bcffile.h"
 #include "fafile.h"
 #include "tabixfile.h"
-#include "io_sam.h"
-#include "idxstats.h"
-#include "as_bam.h"
 #include "pileupbam.h"
 #include "pileup.h"
 
@@ -23,12 +23,12 @@ static const R_CallMethodDef callMethods[] = {
 #ifdef MIGRATE_ME
 
     {".razip", (DL_FUNC) & razip, 2},
-    /* utilities.c */
-    {".p_pairing", (DL_FUNC) & p_pairing, 12},
-    {".find_mate_within_groups", (DL_FUNC) & find_mate_within_groups, 6},
 
 #endif  /* MIGRATE_ME */
 
+    /* utilities.c */
+    {".p_pairing", (DL_FUNC) & p_pairing, 12},
+    {".find_mate_within_groups", (DL_FUNC) & find_mate_within_groups, 6},
     /* bamfile.c */
     {".bamfile_init", (DL_FUNC) & bamfile_init, 0},
     {".bamfile_open", (DL_FUNC) & bamfile_open, 3},
@@ -48,14 +48,8 @@ static const R_CallMethodDef callMethods[] = {
     {".filter_bamfile", (DL_FUNC) & filter_bamfile, 8},
     /* as_bam.c */
     {".as_bam", (DL_FUNC) & as_bam, 3},
-
-#ifdef MIGRATE_ME
-
     /* idxstats.c */
     {".idxstats_bamfile", (DL_FUNC) & idxstats_bamfile, 1},
-
-#endif  /* MIGRATE_ME */
-
     /* io_sam.c */
     {".scan_bam_template", (DL_FUNC) & scan_bam_template, 2},
     {".scan_bam_cleanup", (DL_FUNC) & scan_bam_cleanup, 0},
