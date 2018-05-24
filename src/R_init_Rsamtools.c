@@ -34,13 +34,7 @@ static const R_CallMethodDef callMethods[] = {
     {".bamfile_open", (DL_FUNC) & bamfile_open, 3},
     {".bamfile_close", (DL_FUNC) & bamfile_close, 1},
     {".bamfile_isopen", (DL_FUNC) & bamfile_isopen, 1},
-
-#ifdef MIGRATE_ME
-
     {".bamfile_isincomplete", (DL_FUNC) & bamfile_isincomplete, 1},
-
-#endif  /* MIGRATE_ME */
-
     {".read_bamfile_header", (DL_FUNC) & read_bamfile_header, 2},
     {".scan_bamfile", (DL_FUNC) & scan_bamfile, 13},
     {".count_bamfile", (DL_FUNC) & count_bamfile, 6},
