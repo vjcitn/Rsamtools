@@ -2,6 +2,7 @@
 #include <errno.h>
 #include <htslib/kstring.h>
 #include <htslib/vcf.h>
+#include <htslib/bgzf.h>
 #include "bcffile.h"
 #include "utilities.h"
 
@@ -188,6 +189,74 @@ static int _bcf_ans_grow(SEXP ans, R_len_t sz, int n_smpl)
 
 #ifdef MIGRATE_ME
 
+// MIGRATION NOTE: The definition of the bcf_hdr_t struct has changed **a lot**
+// in recent SAMtools/HTSlib. See src/samtools/bcftools/bcf.h in the RELEASE_3_7
+// branch of Rsamtools for the old definition, and htslib/vcf.h for the new
+// one. In particular the old members referenced in the scan_bcf_header()
+// function below (i.e. members n_ref, n_smpl, l_txt, txt, ns, sns) seem to
+// have disappeared.
+
+SEXP scan_bcf_header(SEXP ext)
+{
+    _checkext(ext, BCFFILE_TAG, "scanBcfHeader");
+    htsFile *bcf = BCFFILE(ext)->file;
+    if (hts_get_format(bcf)->format != vcf &&
+        0 != bgzf_seek(bcf->fp.bgzf, 0, SEEK_SET))
+    {
+        Rf_error("internal: failed to 'seek'");
+    }
+    bcf_hdr_t *hdr = vcf_hdr_read(bcf);
+    if (NULL == hdr)
+        Rf_error("no 'header' line \"#CHROM POS ID...\"?");
+
+    SEXP ans = PROTECT(NEW_LIST(BCF_HDR_LAST));
+    SET_VECTOR_ELT(ans, BCF_HDR_REF, NEW_STRING(hdr->n_ref));
+    SET_VECTOR_ELT(ans, BCF_HDR_SAMPLE, NEW_STRING(hdr->n_smpl));
+    /* count header text lines */
+    const char *c;
+    char *s;
+    int n_hdr = 0;
+    if (hdr->l_txt)
+        for (c = hdr->txt; *c != '\0'; ++c)
+            if (*c == '\n')
+                ++n_hdr;
+    SET_VECTOR_ELT(ans, BCF_HDR_HEADER, NEW_STRING(n_hdr));
+
+    int i;
+    SEXP x = VECTOR_ELT(ans, BCF_HDR_REF);
+    for (i = 0; i < hdr->n_ref; ++i)
+        SET_STRING_ELT(x, i, mkChar(_rtrim(hdr->ns[i])));
+    x = VECTOR_ELT(ans, BCF_HDR_SAMPLE);
+    for (i = 0; i < hdr->n_smpl; ++i)
+        SET_STRING_ELT(x, i, mkChar(_rtrim(hdr->sns[i])));
+    x = VECTOR_ELT(ans, BCF_HDR_HEADER);
+    if (hdr->l_txt) {
+        char *txt = (char *) R_alloc(hdr->l_txt, sizeof(char));
+        strncpy(txt, hdr->txt, hdr->l_txt);
+        s = strtok(txt, "\n");
+        for (i = 0; i < n_hdr; ++i) {
+            SET_STRING_ELT(x, i, mkChar(_rtrim(s)));
+            s = strtok(NULL, "\n");
+        }
+    }
+
+    SEXP nm = NEW_CHARACTER(3);
+    SET_NAMES(ans, nm);         /* protect */
+    for (i = 0; i < BCF_HDR_LAST; ++i)
+        SET_STRING_ELT(nm, i, mkChar(BCF_HDR_NM[i]));
+
+    bcf_hdr_destroy(hdr);
+    UNPROTECT(1);
+    return ans;
+}
+
+// MIGRATION NOTE: The definition of the bcf1_t struct has changed **a lot** in
+// recent SAMtools/HTSlib. See src/samtools/bcftools/bcf.h in the RELEASE_3_7
+// branch of Rsamtools for the old definition, and htslib/vcf.h for the new
+// one. In particular the old members referenced in the code below (str, l_str,
+// ref, alt, flt, info, fmt, n_alleles, n_gi, gi, pos, tid, qual) have been
+// renamed or have disappeared.
+
 static int _bcf_sync1(bcf1_t * b)
 {
     /* called when no FORMAT / GENO fields present;
@@ -290,62 +359,8 @@ static void _bcf_gi2sxp(SEXP geno, const int i_rec, const bcf_hdr_t * h,
     }
 }
 
-SEXP scan_bcf_header(SEXP ext)
-{
-    _checkext(ext, BCFFILE_TAG, "scanBcfHeader");
-    htsFile *bcf = BCFFILE(ext)->file;
-    if (hts_get_format(bcf)->format != vcf &&
-        0 != bgzf_seek(bcf->fp, 0, SEEK_SET))
-    {
-        Rf_error("internal: failed to 'seek'");
-    }
-    bcf_hdr_t *hdr = vcf_hdr_read(bcf);
-    if (NULL == hdr)
-        Rf_error("no 'header' line \"#CHROM POS ID...\"?");
-
-    SEXP ans = PROTECT(NEW_LIST(BCF_HDR_LAST));
-    SET_VECTOR_ELT(ans, BCF_HDR_REF, NEW_STRING(hdr->n_ref));
-    SET_VECTOR_ELT(ans, BCF_HDR_SAMPLE, NEW_STRING(hdr->n_smpl));
-    /* count header text lines */
-    const char *c;
-    char *s;
-    int n_hdr = 0;
-    if (hdr->l_txt)
-        for (c = hdr->txt; *c != '\0'; ++c)
-            if (*c == '\n')
-                ++n_hdr;
-    SET_VECTOR_ELT(ans, BCF_HDR_HEADER, NEW_STRING(n_hdr));
-
-    int i;
-    SEXP x = VECTOR_ELT(ans, BCF_HDR_REF);
-    for (i = 0; i < hdr->n_ref; ++i)
-        SET_STRING_ELT(x, i, mkChar(_rtrim(hdr->ns[i])));
-    x = VECTOR_ELT(ans, BCF_HDR_SAMPLE);
-    for (i = 0; i < hdr->n_smpl; ++i)
-        SET_STRING_ELT(x, i, mkChar(_rtrim(hdr->sns[i])));
-    x = VECTOR_ELT(ans, BCF_HDR_HEADER);
-    if (hdr->l_txt) {
-        char *txt = (char *) R_alloc(hdr->l_txt, sizeof(char));
-        strncpy(txt, hdr->txt, hdr->l_txt);
-        s = strtok(txt, "\n");
-        for (i = 0; i < n_hdr; ++i) {
-            SET_STRING_ELT(x, i, mkChar(_rtrim(s)));
-            s = strtok(NULL, "\n");
-        }
-    }
-
-    SEXP nm = NEW_CHARACTER(3);
-    SET_NAMES(ans, nm);         /* protect */
-    for (i = 0; i < BCF_HDR_LAST; ++i)
-        SET_STRING_ELT(nm, i, mkChar(BCF_HDR_NM[i]));
-
-    bcf_hdr_destroy(hdr);
-    UNPROTECT(1);
-    return ans;
-}
-
-int scan_bcf_range(htsFile * bcf, bcf_hdr_t * hdr, SEXP ans, int tid, int start,
-                   int end, int n)
+static int scan_bcf_range(htsFile * bcf, bcf_hdr_t * hdr, SEXP ans,
+                          int tid, int start, int end, int n)
 {
     const int TID_BUFSZ = 8;
     static char *buf = NULL;
@@ -458,7 +473,7 @@ SEXP scan_bcf(SEXP ext, SEXP space, SEXP tmpl)
     return tmpl;
 }
 
-int _as_bcf(htsFile * fin, const char *dict, htsFile * fout)
+static int _as_bcf(htsFile * fin, const char *dict, htsFile * fout)
 {
     bcf1_t *b = calloc(1, sizeof(bcf1_t));	/* free'd in bcf_destroy */
     if (NULL == b)

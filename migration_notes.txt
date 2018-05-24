@@ -107,25 +107,28 @@ Migration status, file by file
 C files (17 files, ignoring bam.c, bam_plbuf.c, bam_sort.c, sam.c, sam_opts.c,
 sam_utils.c, and the *_stubs.c files):
 
-  File                Status          Note
-  ------------------  --------------  ----------
+  File                Status           Notes
+  ------------------  --------------   ----------
   as_bam.c            done
   bambuffer.c         done
   bam_data.c          done
   bamfile.c           done
-  bcffile.c           TO DO           indexBcf() runs but is broken!
+  bcffile.c           partially done   .Call entry points scan_bcf_header(),
+                                       scan_bcf(), and as_bcf(), are missing.
+                                       indexBcf() runs but is broken! (it
+                                       calls .Call entry point index_bcf()).
   encode.c            nothing to do
   fafile.c            done
   idxstats.c          done
   io_sam.c            done
-  pileupbam.c         done            applyPileups() runs but tests fail!
+  pileupbam.c         done             applyPileups() runs but tests fail!
   R_init_Rsamtools.c  TO DO
   samtools_patch.c    nothing to do
   scan_bam_data.c     done
   tabixfile.c         TO DO
   tagfilter.c         done
   utilities.c         done
-  zip_compression.c   half done       RAZF is no longer provided with SAMtools!
+  zip_compression.c   half done        RAZF is no longer provided with SAMtools!
 
 C++ files (6 files):
 

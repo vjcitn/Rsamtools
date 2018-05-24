@@ -6,10 +6,13 @@
 
 #ifdef MIGRATE_ME
 
+// MIGRATION NOTE: The tabix_t struct is no longer defined in SAMtools/HTSlib.
+// See src/tabix/tabix.h in the RELEASE_3_7 branch of Rsamtools for its
+// definition. The problem is that it's not clear what we should replace it
+// with. For example the tbx_t struct defined in htslib 1.7 (see htslib/tbx.h)
+// looks VERY different from this tabix_t struct.
 typedef struct {
-    tabix_t *tabix;  // MIGRATION NOTE: tbx_t struct defined in htslib 1.7
-                     // htslib/tbx.h looks VERY different from this old
-                     // tabix_t struct!
+    tabix_t *tabix;
     hts_itr_t iter;
 } _TABIX_FILE;
 
