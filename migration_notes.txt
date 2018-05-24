@@ -65,18 +65,27 @@ samtools functions used in Rsamtools 1.33.0
   BAM_FUNMAP          (bam.h)      YES
   BAM_FMUNMAP         (bam.h)      YES
 
+  vcf_open            (bcf.h)      YES -- now in htslib/vcf.h, return htsFile *
+  vcf_close           (bcf.h)      YES -- now in htslib/vcf.h
   vcf_hdr_read        (bcf.h)      YES
   vcf_read            (bcf.h)      YES
   vcf_hdr_write       (bcf.h)      YES
   vcf_write           (bcf.h)      YES
   vcf_dictread        (bcf.h)      NO
+
+  bcf_open            (bcf.h)      YES -- now in htslib/vcf.h, return htsFile *
+  bcf_close           (bcf.h)      YES -- now in htslib/vcf.h
+  bcf_idx_load        (bcf.h)      NO -- now is bcf_index_load (htslib/vcf.h)
+  bcf_idx_destroy     (bcf.h)      NO -- now is hts_idx_destroy (htslib/hts.h)
+  bcf_idx_build       (bcf.h)      NO -- now is bcf_index_build (htslib/vcf.h)
   bcf_hdr_destroy     (bcf.h)      YES
   bcf_destroy         (bcf.h)      YES
   bcf_build_refhash   (bcf.h)      NO
   bcf_str2id          (bcf.h)      NO
   bcf_str2id_destroy  (bcf.h)      NO
-  bcf_idx_build       (bcf.h)      NO
   bcf_idx_query       (bcf.h)      NO
+
+  ti_close            (tabix.h)    NO
 
   faidx_fetch_seq2    (faidx.h)    NO
 
@@ -98,25 +107,25 @@ Migration status, file by file
 C files (17 files, ignoring bam.c, bam_plbuf.c, bam_sort.c, sam.c, sam_opts.c,
 sam_utils.c, and the *_stubs.c files):
 
-  File                 Status            Assigned to
-  -------------------  ----------------  -----------
-  as_bam.c             done
-  bambuffer.c          done
-  bam_data.c           done
-  bamfile.c            done
-  bcffile.c            TO DO
-  encode.c             nothing to do
-  fafile.c             TO DO
-  idxstats.c           TO DO
-  io_sam.c             done
-  pileupbam.c          TO DO
-  R_init_Rsamtools.c   TO DO
-  samtools_patch.c     nothing to do
-  scan_bam_data.c      TO DO
-  tabixfile.c          TO DO
-  tagfilter.c          done
-  utilities.c          done
-  zip_compression.c    TO DO
+  File                Status         Notes
+  ------------------  -------------  ----------
+  as_bam.c            done
+  bambuffer.c         done
+  bam_data.c          done
+  bamfile.c           done
+  bcffile.c           TO DO          indexBcf() runs but is broken!
+  encode.c            nothing to do
+  fafile.c            done           RAZF is no longer provided with SAMtools!
+  idxstats.c          TO DO
+  io_sam.c            done
+  pileupbam.c         done           applyPileups() runs but tests fail!
+  R_init_Rsamtools.c  TO DO
+  samtools_patch.c    nothing to do
+  scan_bam_data.c     done
+  tabixfile.c         TO DO
+  tagfilter.c         done
+  utilities.c         done
+  zip_compression.c   TO DO
 
 C++ files (6 files):
 

@@ -34,29 +34,21 @@ static SEXP BCFFILE_TAG = NULL;
 
 static const int BCF_BUFSIZE_GROW = 100000;	/* initial # records */
 
-#ifdef MIGRATE_ME
-
-static bcf_t *_bcf_tryopen(const char *fname, const char *mode)
+static htsFile *_bcf_tryopen(const char *fname, const char *mode)
 {
     return vcf_open(fname, mode);
 }
 
-static bcf_idx_t *_bcf_idx_load(const char *fname)
+static hts_idx_t *_bcf_idx_load(const char *fname)
 {
-    return bcf_idx_load(fname);
+    return bcf_index_load(fname);
 }
 
-static void _bcf_close(bcf_t * bcf, int errmsg)
+static void _bcf_close(htsFile * bcf, int errmsg)
 {
     int err = vcf_close(bcf);
-    if ((0 != err) && errmsg) {
-        if (Z_ERRNO == err) {
-            err = errno;
-            Rf_error("_bcf_close file system error (%d): %s",
-                     err, strerror(err));
-        }
+    if ((0 != err) && errmsg)
         Rf_error("_bcf_close error (%d)", err);
-    }
 }
 
 static void _bcffile_close(SEXP ext)
@@ -65,7 +57,7 @@ static void _bcffile_close(SEXP ext)
     if (NULL != bfile->file)
         vcf_close(bfile->file);
     if (NULL != bfile->index)
-        bcf_idx_destroy(bfile->index);
+        hts_idx_destroy(bfile->index);
     bfile->file = NULL;
     bfile->index = NULL;
 }
@@ -80,15 +72,11 @@ static void _bcffile_finalizer(SEXP ext)
     R_SetExternalPtrAddr(ext, NULL);
 }
 
-#endif  /* MIGRATE_ME */
-
 SEXP bcffile_init()
 {
     BCFFILE_TAG = install("BcfFile");
     return R_NilValue;
 }
-
-#ifdef MIGRATE_ME
 
 SEXP bcffile_open(SEXP filename, SEXP indexname, SEXP filemode)
 {
@@ -107,7 +95,9 @@ SEXP bcffile_open(SEXP filename, SEXP indexname, SEXP filemode)
     }
 
     bfile->index = NULL;
-    if (0 != Rf_length(indexname) && !bfile->file->is_vcf) {
+    if (0 != Rf_length(indexname) &&
+        hts_get_format(bfile->file)->format != vcf)
+    {
         const char *cindex = translateChar(STRING_ELT(indexname, 0));
         bfile->index = _bcf_idx_load(cindex);
         if (NULL == bfile->index) {
@@ -147,8 +137,11 @@ SEXP bcffile_isvcf(SEXP ext)
     SEXP ans = ScalarLogical(FALSE);
     if (NULL != BCFFILE(ext)) {
         _checkext(ext, BCFFILE_TAG, "isVcf");
-        if (BCFFILE(ext)->file && BCFFILE(ext)->file->is_vcf)
+        if (BCFFILE(ext)->file &&
+            hts_get_format(BCFFILE(ext)->file)->format == vcf)
+        {
             ans = ScalarLogical(TRUE);
+        }
     }
     return ans;
 }
@@ -192,6 +185,8 @@ static int _bcf_ans_grow(SEXP ans, R_len_t sz, int n_smpl)
     }
     return n;
 }
+
+#ifdef MIGRATE_ME
 
 static int _bcf_sync1(bcf1_t * b)
 {
@@ -298,9 +293,12 @@ static void _bcf_gi2sxp(SEXP geno, const int i_rec, const bcf_hdr_t * h,
 SEXP scan_bcf_header(SEXP ext)
 {
     _checkext(ext, BCFFILE_TAG, "scanBcfHeader");
-    bcf_t *bcf = BCFFILE(ext)->file;
-    if (!bcf->is_vcf && 0 != bgzf_seek(bcf->fp, 0, SEEK_SET))
+    htsFile *bcf = BCFFILE(ext)->file;
+    if (hts_get_format(bcf)->format != vcf &&
+        0 != bgzf_seek(bcf->fp, 0, SEEK_SET))
+    {
         Rf_error("internal: failed to 'seek'");
+    }
     bcf_hdr_t *hdr = vcf_hdr_read(bcf);
     if (NULL == hdr)
         Rf_error("no 'header' line \"#CHROM POS ID...\"?");
@@ -346,7 +344,7 @@ SEXP scan_bcf_header(SEXP ext)
     return ans;
 }
 
-int scan_bcf_range(bcf_t * bcf, bcf_hdr_t * hdr, SEXP ans, int tid, int start,
+int scan_bcf_range(htsFile * bcf, bcf_hdr_t * hdr, SEXP ans, int tid, int start,
                    int end, int n)
 {
     const int TID_BUFSZ = 8;
@@ -380,7 +378,7 @@ int scan_bcf_range(bcf_t * bcf, bcf_hdr_t * hdr, SEXP ans, int tid, int start,
             snprintf(buf, TID_BUFSZ, "%d", bcf1->tid);
             SET_STRING_ELT(VECTOR_ELT(ans, BCF_TID), n, smkChar(buf));
         }
-        if (bcf->is_vcf && NULL == bcf1->ref)
+        if (hts_get_format(bcf)->format == vcf && NULL == bcf1->ref)
             if (_bcf_sync1(bcf1)) {
                 bcf_destroy(bcf1);
                 Rf_error("bcf_scan: unexpected number of fields in line %d",
@@ -395,7 +393,7 @@ int scan_bcf_range(bcf_t * bcf, bcf_hdr_t * hdr, SEXP ans, int tid, int start,
         SET_STRING_ELT(VECTOR_ELT(ans, BCF_INFO), n, smkChar(bcf1->info));
         SET_STRING_ELT(VECTOR_ELT(ans, BCF_FMT), n, smkChar(bcf1->fmt));
         _bcf_gi2sxp(VECTOR_ELT(ans, BCF_GENO), n, hdr, bcf1);
-        if (bcf->is_vcf)
+        if (hts_get_format(bcf)->format == vcf)
             bcf1->ref = NULL;
         ++n;
     }
@@ -407,10 +405,13 @@ SEXP scan_bcf(SEXP ext, SEXP space, SEXP tmpl)
 {
     _checkparams(space, R_NilValue, R_NilValue);
     _checkext(ext, BCFFILE_TAG, "scanBcf");
-    bcf_t *bcf = BCFFILE(ext)->file;
-    bcf_idx_t *idx = BCFFILE(ext)->index;
-    if (!bcf->is_vcf && 0 != bgzf_seek(bcf->fp, 0, SEEK_SET))
+    htsFile *bcf = BCFFILE(ext)->file;
+    hts_idx_t *idx = BCFFILE(ext)->index;
+    if (hts_get_format(bcf)->format != vcf &&
+        0 != bgzf_seek(bcf->fp, 0, SEEK_SET))
+    {
         Rf_error("internal: failed to 'seek' on bcf file");
+    }
     bcf_hdr_t *hdr = vcf_hdr_read(bcf);
     if (NULL == hdr)
         Rf_error("no 'header' line \"#CHROM POS ID...\"?");
@@ -457,7 +458,7 @@ SEXP scan_bcf(SEXP ext, SEXP space, SEXP tmpl)
     return tmpl;
 }
 
-int _as_bcf(bcf_t * fin, const char *dict, bcf_t * fout)
+int _as_bcf(htsFile * fin, const char *dict, htsFile * fout)
 {
     bcf1_t *b = calloc(1, sizeof(bcf1_t));	/* free'd in bcf_destroy */
     if (NULL == b)
@@ -492,11 +493,11 @@ SEXP as_bcf(SEXP file, SEXP dictionary, SEXP destination)
     if (!IS_CHARACTER(destination) || 1 != LENGTH(destination))
         Rf_error("'destination' must be character(1)");
 
-    bcf_t *fin = _bcf_tryopen(translateChar(STRING_ELT(file, 0)), "r");
+    htsFile *fin = _bcf_tryopen(translateChar(STRING_ELT(file, 0)), "r");
     if (NULL == fin)
         Rf_error("failed to open VCF 'file'");
 
-    bcf_t *fout = _bcf_tryopen(translateChar(STRING_ELT(destination, 0)), "wb");
+    htsFile *fout = _bcf_tryopen(translateChar(STRING_ELT(destination, 0)), "wb");
     if (NULL == fout)
         Rf_error("failed to open BCF 'destination'");
 
@@ -510,17 +511,17 @@ SEXP as_bcf(SEXP file, SEXP dictionary, SEXP destination)
     return destination;
 }
 
+#endif  /* MIGRATE_ME */
+
 SEXP index_bcf(SEXP file)
 {
     if (!IS_CHARACTER(file) || 1 != LENGTH(file))
         Rf_error("'file' must be character(1)");
     const char *fbcf = translateChar(STRING_ELT(file, 0));
-    int status = bcf_idx_build(fbcf);
+    int status = bcf_index_build(fbcf, 0);
     if (0 != status)
         Rf_error("failed to build index");
     char *fidx = (char *) R_alloc(strlen(fbcf) + 5, sizeof(char));
     sprintf(fidx, "%s.bci", fbcf);
     return mkString(fidx);
 }
-
-#endif  /* MIGRATE_ME */

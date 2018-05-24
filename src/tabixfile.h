@@ -2,30 +2,29 @@
 #define _TABIXFILE_H
 
 #include <Rdefines.h>
+#include "htslib/tbx.h"
 
 #ifdef MIGRATE_ME
 
-#include "tabix/tabix.h"
-
 typedef struct {
-    tabix_t *tabix;
-    ti_iter_t iter;
+    tabix_t *tabix;  // MIGRATION NOTE: tbx_t struct defined in htslib 1.7
+                     // htslib/tbx.h looks VERY different from this old
+                     // tabix_t struct!
+    hts_itr_t iter;
 } _TABIX_FILE;
 
 #define TABIXFILE(b) ((_TABIX_FILE *) R_ExternalPtrAddr(b))
 
-typedef SEXP SCAN_FUN(tabix_t *tabix, ti_iter_t iter, const int size,
+typedef SEXP SCAN_FUN(tabix_t *tabix, hts_itr_t iter, const int size,
                       SEXP state, SEXP rownames);
 
 SCAN_FUN tabix_as_character;
+
 SCAN_FUN tabix_count;
 
 #endif  /* MIGRATE_ME */
 
 SEXP tabixfile_init();
-
-#ifdef MIGRATE_ME
-
 SEXP tabixfile_open(SEXP filename, SEXP indexname);
 SEXP tabixfile_close(SEXP ext);
 SEXP tabixfile_isopen(SEXP ext);
@@ -36,7 +35,5 @@ SEXP index_tabix(SEXP filename, SEXP format,
 SEXP header_tabix(SEXP ext);
 SEXP scan_tabix(SEXP ext, SEXP space, SEXP yield, SEXP fun, 
                 SEXP state, SEXP rownames);
-
-#endif  /* MIGRATE_ME */
 
 #endif

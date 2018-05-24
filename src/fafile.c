@@ -4,19 +4,11 @@
 #include "fafile.h"
 #include "utilities.h"
 
-#ifdef MIGRATE_ME
-
-#include "razf.h"
-
-#endif  /* MIGRATE_ME */
-
 static SEXP FAFILE_TAG = NULL;
-
-#ifdef MIGRATE_ME
 
 static faidx_t *_fa_tryopen(const char *fname, const char *iname)
 {
-    return fai_load0(fname, iname);
+    return fai_load3(fname, iname, NULL, FAI_CREATE);
 }
 
 static void _fa_close(faidx_t * fai)
@@ -42,15 +34,11 @@ static void _fafile_finalizer(SEXP ext)
     R_SetExternalPtrAddr(ext, NULL);
 }
 
-#endif  /* MIGRATE_ME */
-
 SEXP fafile_init()
 {
     FAFILE_TAG = install("FaFile");
     return R_NilValue;
 }
-
-#ifdef MIGRATE_ME
 
 SEXP fafile_open(SEXP filename, SEXP indexname)
 {
@@ -116,7 +104,7 @@ SEXP n_fa(SEXP ext)
     faidx_t *fai = FAFILE(ext)->index;
     if (NULL == fai)
         Rf_error("'index' not available");
-    return ScalarInteger(faidx_fetch_nseq(fai));
+    return ScalarInteger(faidx_nseq(fai));
 }
 
 /*
@@ -193,4 +181,3 @@ SEXP scan_fa(SEXP ext, SEXP seq, SEXP start, SEXP end, SEXP type, SEXP lkup)
     return ans;
 }
 
-#endif  /* MIGRATE_ME */

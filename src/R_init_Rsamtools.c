@@ -18,7 +18,7 @@
 #include "pileup.h"
 
 #ifdef _WIN32
-#include "knetfile.h"
+#include <knetfile.h>
 #endif
 
 static const R_CallMethodDef callMethods[] = {
@@ -69,35 +69,29 @@ static const R_CallMethodDef callMethods[] = {
     {".index_bam", (DL_FUNC) & index_bam, 1},
     /* bcffile.c */
     {".bcffile_init", (DL_FUNC) & bcffile_init, 0},
-
-#ifdef MIGRATE_ME
-
     {".bcffile_open", (DL_FUNC) & bcffile_open, 3},
     {".bcffile_close", (DL_FUNC) & bcffile_close, 1},
     {".bcffile_isopen", (DL_FUNC) & bcffile_isopen, 1},
     {".bcffile_isvcf", (DL_FUNC) & bcffile_isvcf, 1},
-    {".scan_bcf_header", (DL_FUNC) & scan_bcf_header, 1},
-    {".scan_bcf", (DL_FUNC) & scan_bcf, 3},
-    {".as_bcf", (DL_FUNC) & as_bcf, 3},
-    {".index_bcf", (DL_FUNC) & index_bcf, 1},
-
-#endif  /* MIGRATE_ME */
-
-    /* fafile.c */
-    {".fafile_init", (DL_FUNC) & fafile_init, 0},
 
 #ifdef MIGRATE_ME
 
+    {".scan_bcf_header", (DL_FUNC) & scan_bcf_header, 1},
+    {".scan_bcf", (DL_FUNC) & scan_bcf, 3},
+    {".as_bcf", (DL_FUNC) & as_bcf, 3},
+
+#endif  /* MIGRATE_ME */
+
+    {".index_bcf", (DL_FUNC) & index_bcf, 1},
+    /* fafile.c */
+    {".fafile_init", (DL_FUNC) & fafile_init, 0},
     {".fafile_open", (DL_FUNC) & fafile_open, 2},
     {".fafile_close", (DL_FUNC) & fafile_close, 1},
     {".fafile_isopen", (DL_FUNC) & fafile_isopen, 1},
     {".index_fa", (DL_FUNC) & index_fa, 1},
     {".n_fa", (DL_FUNC) & n_fa, 1},
     {".scan_fa", (DL_FUNC) & scan_fa, 6},
-
-#endif  /* MIGRATE_ME */
-
-    /* tabixfile */
+    /* tabixfile.c */
     {".tabixfile_init", (DL_FUNC) & tabixfile_init, 0},
 
 #ifdef MIGRATE_ME
@@ -110,19 +104,19 @@ static const R_CallMethodDef callMethods[] = {
     {".scan_tabix", (DL_FUNC) & scan_tabix, 6},
     {".tabix_as_character", (DL_FUNC) & tabix_as_character, 4},
     {".tabix_count", (DL_FUNC) & tabix_count, 5},
-    /* pileupbam */
-    {".apply_pileups", (DL_FUNC) & apply_pileups, 5},
 
 #endif  /* MIGRATE_ME */
 
-    /* bambuffer */
+    /* pileupbam.c */
+    {".apply_pileups", (DL_FUNC) & apply_pileups, 5},
+    /* bambuffer.c */
     {".bambuffer_init", (DL_FUNC) & bambuffer_init, 0},
     {".bambuffer", (DL_FUNC) & bambuffer, 1},
     {".bambuffer_length", (DL_FUNC) & bambuffer_length, 1},
     {".bambuffer_parse", (DL_FUNC) & bambuffer_parse, 9},
     {".bambuffer_write", (DL_FUNC) & bambuffer_write, 3},
     {".bambuffer_reset", (DL_FUNC) & bambuffer_reset, 1},
-    /* pileup */
+    /* pileup.cpp */
     {".c_Pileup", (DL_FUNC) & c_Pileup, 14},
     {NULL, NULL, 0}
 };

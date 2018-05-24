@@ -6,6 +6,7 @@
 
 #ifdef MIGRATE_ME
 
+// MIGRATION NOTE: RAZF is no longer provided with SAMtools!
 #include "razf.h"
 
 #endif  /* MIGRATE_ME */

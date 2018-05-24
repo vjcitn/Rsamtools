@@ -1,3 +1,4 @@
+#include <htslib/bgzf.h>
 #include "tabixfile.h"
 #include "utilities.h"
 
@@ -82,7 +83,7 @@ SEXP tabixfile_isopen(SEXP ext)
 SEXP index_tabix(SEXP filename, SEXP format, SEXP seq, SEXP begin, SEXP end,
                  SEXP skip, SEXP comment, SEXP zeroBased)
 {
-    ti_conf_t conf = ti_conf_gff;
+    tbx_conf_t conf = tbx_conf_gff;
 
     if (!IS_CHARACTER(filename) || 1L != Rf_length(filename))
         Rf_error("'filename' must be character(1)");
@@ -92,15 +93,15 @@ SEXP index_tabix(SEXP filename, SEXP format, SEXP seq, SEXP begin, SEXP end,
     if (1L == Rf_length(format)) {
         const char *txt = CHAR(STRING_ELT(format, 0));
         if (strcmp(txt, "gff") == 0)
-            conf = ti_conf_gff;
+            conf = tbx_conf_gff;
         else if (strcmp(txt, "bed") == 0)
-            conf = ti_conf_bed;
+            conf = tbx_conf_bed;
         else if (strcmp(txt, "sam") == 0)
-            conf = ti_conf_sam;
+            conf = tbx_conf_sam;
         else if (strcmp(txt, "vcf") == 0 || strcmp(txt, "vcf4") == 0)
-            conf = ti_conf_vcf;
+            conf = tbx_conf_vcf;
         else if (strcmp(txt, "psltbl") == 0)
-            conf = ti_conf_psltbl;
+            conf = tbx_conf_psltbl;
         else
             Rf_error("format '%s' unrecognized", txt);
     } else {
@@ -121,7 +122,8 @@ SEXP index_tabix(SEXP filename, SEXP format, SEXP seq, SEXP begin, SEXP end,
         conf.meta_char = CHAR(STRING_ELT(comment, 0))[0];
     if (IS_LOGICAL(zeroBased) && 1L == Rf_length(zeroBased) &&
         TRUE == LOGICAL(zeroBased)[0])
-        conf.preset |= TI_FLAG_UCSC;
+        conf.preset |= TI_FLAG_UCSC;  // MIGRATION NOTE: TI_FLAG_UCSC is gone
+                                      // in htslib 1.7!
 
     if (1 != bgzf_is_bgzf(fname))
         Rf_error("file does not appear to be bgzip'd");
@@ -131,7 +133,7 @@ SEXP index_tabix(SEXP filename, SEXP format, SEXP seq, SEXP begin, SEXP end,
     return filename;
 }
 
-const char *_tabix_read(tabix_t *t, ti_iter_t iter, int *len)
+const char *_tabix_read(tabix_t *t, hts_itr_t iter, int *len)
 {
     const char *line = ti_read(t, iter, len);
     if (t->fp->errcode)
@@ -140,13 +142,17 @@ const char *_tabix_read(tabix_t *t, ti_iter_t iter, int *len)
     return line;
 }
 
-SEXP _header_lines(tabix_t * tabix, const ti_conf_t * conf)
+SEXP _header_lines(tabix_t * tabix, const tbx_conf_t * conf)
 {
     const int GROW_BY = 100;
     SEXP lns;
     int i_lns = 0, pidx;
 
     ti_iter_t iter = ti_query(tabix, NULL, 0, 0);
+    // MIGRATION NOTE: If 'tabix' really needs to be of type tbx_t (instead
+    // of tabix_t), then it seems that the above line can be replaced with
+    // the line below.
+    //hts_itr_t *iter = tbx_itr_queryi(tabix, 0, 0, 0);
     uint64_t curr_off = 0;
     const char *s;
     int len;
@@ -202,7 +208,7 @@ SEXP header_tabix(SEXP ext)
         SET_STRING_ELT(tmp, i, mkChar(seqnames[i]));
     free(seqnames);
 
-    const ti_conf_t *conf = ti_get_conf(tabix->idx);
+    const tbx_conf_t *conf = ti_get_conf(tabix->idx);
 
     /* indexColumns */
     tmp = NEW_INTEGER(3);
@@ -232,11 +238,11 @@ SEXP header_tabix(SEXP ext)
     return result;
 }
 
-SEXP tabix_as_character(tabix_t *tabix, ti_iter_t iter, const int size, 
+SEXP tabix_as_character(tbx_t *tabix, hts_itr_t iter, const int size,
                         SEXP state, SEXP rownames)
 {
     const double SCALE = 1.6;
-    const ti_conf_t *conf = ti_get_conf(tabix->idx);
+    const tbx_conf_t conf = tabix->conf;
 
     int buflen = 4096;
     char *buf = Calloc(buflen, char);
@@ -256,7 +262,7 @@ SEXP tabix_as_character(tabix_t *tabix, ti_iter_t iter, const int size,
 
     while (NULL != (line = _tabix_read(tabix, iter, &linelen)))
     {
-        if (conf->meta_char == *line)
+        if (conf.meta_char == *line)
             continue;
 
         if (irec == nrec) {
@@ -287,10 +293,10 @@ SEXP tabix_as_character(tabix_t *tabix, ti_iter_t iter, const int size,
     return record;
 }
 
-SEXP tabix_count(tabix_t *tabix, ti_iter_t iter, const int size, 
+SEXP tabix_count(tbx_t *tabix, hts_itr_t iter, const int size,
                  SEXP state, SEXP rownames)
 {
-    const ti_conf_t *conf = ti_get_conf(tabix->idx);
+    const tbx_conf_t conf = tabix->conf;
     const char *line;
     int linelen, irec = 0;
 
@@ -301,7 +307,7 @@ SEXP tabix_count(tabix_t *tabix, ti_iter_t iter, const int size,
 
     while (NULL != (line = _tabix_read(tabix, iter, &linelen)))
     {
-        if (conf->meta_char == *line)
+        if (conf.meta_char == *line)
             continue;
         irec += 1;
     }
@@ -326,7 +332,7 @@ SEXP scan_tabix(SEXP ext, SEXP space, SEXP yield, SEXP fun,
 
     PROTECT(result = NEW_LIST(nspc == 0 ? 1 : nspc));
     if (0 == nspc) {
-        ti_iter_t iter = TABIXFILE(ext)->iter;
+        hts_itr_t iter = TABIXFILE(ext)->iter;
         if (NULL == iter) {
             if (0 != ti_lazy_index_load(tabix))
                 Rf_error("'scanTabix' failed to load index");
@@ -343,7 +349,7 @@ SEXP scan_tabix(SEXP ext, SEXP space, SEXP yield, SEXP fun,
 
         for (int ispc = 0; ispc < nspc; ++ispc) {
             int ibeg, iend, tid;
-            ti_iter_t iter;
+            hts_itr_t iter;
             const char *tid_name;
 
             ibeg = start[ispc] == 0 ? 0 : start[ispc] - 1;

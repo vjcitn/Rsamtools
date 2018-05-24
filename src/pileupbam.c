@@ -12,8 +12,6 @@ typedef enum {
 #define WHAT_SEQ 1
 #define WHAT_QUAL 2
 
-#ifdef MIGRATE_ME
-
 typedef struct {
     BAM_FILE bfile;
     bamFile fp;
@@ -29,8 +27,6 @@ typedef struct {
     const bam_pileup1_t **plp;
     bam_mplp_t mplp_iter;
 } PILEUP_ITER_T;
-
-#endif  /* MIGRATE_ME */
 
 typedef struct {
     const char *chr;
@@ -65,15 +61,13 @@ KHASH_MAP_INIT_STR(s, int)
 const int QUAL_LEVELS = 94,     /* printable ASCII */
     SEQ_LEVELS = 5;             /* A, C, G, T, N */
 
-#ifdef MIGRATE_ME
-
 static void _bam_header_hash_init(bam_header_t * header)
 {
-    if (0 == header->hash) {
+    if (0 == header->sdict) {
         int ret, i;
         khiter_t iter;
         khash_t(s) * h;
-        header->hash = h = kh_init(s);
+        header->sdict = h = kh_init(s);
         for (i = 0; i < header->n_targets; ++i) {
             iter = kh_put(s, h, header->target_name[i], &ret);
             kh_value(h, iter) = i;
@@ -728,5 +722,3 @@ SEXP apply_pileups(SEXP files, SEXP names, SEXP space, SEXP param,
 
     return result;
 }
-
-#endif  /* MIGRATE_ME */
