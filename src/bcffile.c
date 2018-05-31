@@ -195,6 +195,26 @@ static int _bcf_ans_grow(SEXP ans, R_len_t sz, int n_smpl)
 // one. In particular the old members referenced in the scan_bcf_header()
 // function below (i.e. members n_ref, n_smpl, l_txt, txt, ns, sns) seem to
 // have disappeared.
+//
+// FWIW here are some preliminary findings:
+//
+//   Old way                       New way
+//   ----------------------------  -------------------------------------------
+//   Get the reference sequences:
+//   hdr->n_ref, hdr->ns           bcf_hdr_seqnames(hdr, &nseqs) (must call
+//                                 free() on the returned pointer when done)
+//   Get the sample names:
+//   hdr->n_smpl                   bcf_hdr_nsamples(hdr)
+//   hdr->sns                      hdr->samples
+//
+//   Get the header lines:
+//   n_hdr                         hdr->nhrec
+//   hdr->txt, hdr->l_txt          get the header lines via hdr->nhrec and
+//                                 hdr->hrec (look at bcf_header_debug() and
+//                                 _bcf_hrec_format() in htslib-1.7/vcf.c for
+//                                 examples of how to rebuild the header lines
+//                                 from the array of bcf_hrec_t structs in
+//                                 hdr->hrec)
 
 SEXP scan_bcf_header(SEXP ext)
 {
