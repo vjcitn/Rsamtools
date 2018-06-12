@@ -150,3 +150,8 @@ Compilation of code that doesn't compile yet was disabled by putting it inside
   ...
   #endif  /* MIGRATE_ME */
 
+files added to htslib:
+
+  bam.c, bam_plbuf.c, bam_sort.c, sam.c, sam_header.h,
+  sam_opts.h, sam_utils.c, bam.h, bam_plbuf.h, sam.h, sam_opts.c
+  samtools.h, version.h.
