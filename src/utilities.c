@@ -249,15 +249,26 @@ char *_rtrim(char *s)
     return s;
 }
 
-int _get_CRLF_pos(const char *s)
+/*
+ * Copied from XVector/src/io_utils.c
+ * Doesn't actually delete anything but returns the length that the 'buf' char
+ * array would have had after deletion of the LF ("\n") or CRLF ("\r\n") chars
+ * located at its end.
+ * If 'buf_len' is -1, then 'buf' must be a C string (i.e. null-terminated).
+ */
+int _delete_trailing_LF_or_CRLF(const char *buf, int buf_len)
 {
-    int i = strlen(s) - 1;
-    while (i >= 0) {
-        if (s[i] != '\r')
-            break;
-        i--;
-    }
-    return i + 1;
+    if (buf_len == -1)
+        buf_len = strlen(buf);
+    if (buf_len == 0)
+        return 0;
+    if (buf[--buf_len] != '\n')
+        return ++buf_len;
+    if (buf_len == 0)
+        return 0;
+    if (buf[--buf_len] != '\r')
+        return ++buf_len;
+    return buf_len;
 }
 
 /* scan-related */
