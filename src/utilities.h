@@ -29,6 +29,7 @@ SEXP _as_PhredQuality(const char **key, int len);
 void _reverse(char *buf, int len);
 void _reverseComplement(char *buf, int len);
 char *_rtrim(char *);
+int _get_CRLF_pos(const char *s);
 
 /* common checks */
 

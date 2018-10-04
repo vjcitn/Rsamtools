@@ -187,35 +187,6 @@ static int _bcf_ans_grow(SEXP ans, R_len_t sz, int n_smpl)
     return n;
 }
 
-#ifdef MIGRATE_ME
-
-// MIGRATION NOTE: The definition of the bcf_hdr_t struct has changed **a lot**
-// in recent SAMtools/HTSlib. See src/samtools/bcftools/bcf.h in the RELEASE_3_7
-// branch of Rsamtools for the old definition, and htslib/vcf.h for the new
-// one. In particular the old members referenced in the scan_bcf_header()
-// function below (i.e. members n_ref, n_smpl, l_txt, txt, ns, sns) seem to
-// have disappeared.
-//
-// FWIW here are some preliminary findings:
-//
-//   Old way                       New way
-//   ----------------------------  -------------------------------------------
-//   Get the reference sequences:
-//   hdr->n_ref, hdr->ns           bcf_hdr_seqnames(hdr, &nseqs) (must call
-//                                 free() on the returned pointer when done)
-//   Get the sample names:
-//   hdr->n_smpl                   bcf_hdr_nsamples(hdr)
-//   hdr->sns                      hdr->samples
-//
-//   Get the header lines:
-//   n_hdr                         hdr->nhrec
-//   hdr->txt, hdr->l_txt          get the header lines via hdr->nhrec and
-//                                 hdr->hrec (look at bcf_header_debug() and
-//                                 _bcf_hrec_format() in htslib-1.7/vcf.c for
-//                                 examples of how to rebuild the header lines
-//                                 from the array of bcf_hrec_t structs in
-//                                 hdr->hrec)
-
 SEXP scan_bcf_header(SEXP ext)
 {
     _checkext(ext, BCFFILE_TAG, "scanBcfHeader");
@@ -230,36 +201,46 @@ SEXP scan_bcf_header(SEXP ext)
         Rf_error("no 'header' line \"#CHROM POS ID...\"?");
 
     SEXP ans = PROTECT(NEW_LIST(BCF_HDR_LAST));
-    SET_VECTOR_ELT(ans, BCF_HDR_REF, NEW_STRING(hdr->n_ref));
-    SET_VECTOR_ELT(ans, BCF_HDR_SAMPLE, NEW_STRING(hdr->n_smpl));
-    /* count header text lines */
-    const char *c;
-    char *s;
-    int n_hdr = 0;
-    if (hdr->l_txt)
-        for (c = hdr->txt; *c != '\0'; ++c)
-            if (*c == '\n')
-                ++n_hdr;
-    SET_VECTOR_ELT(ans, BCF_HDR_HEADER, NEW_STRING(n_hdr));
-
+    SEXP ans_elt;
     int i;
-    SEXP x = VECTOR_ELT(ans, BCF_HDR_REF);
-    for (i = 0; i < hdr->n_ref; ++i)
-        SET_STRING_ELT(x, i, mkChar(_rtrim(hdr->ns[i])));
-    x = VECTOR_ELT(ans, BCF_HDR_SAMPLE);
-    for (i = 0; i < hdr->n_smpl; ++i)
-        SET_STRING_ELT(x, i, mkChar(_rtrim(hdr->sns[i])));
-    x = VECTOR_ELT(ans, BCF_HDR_HEADER);
-    if (hdr->l_txt) {
-        char *txt = (char *) R_alloc(hdr->l_txt, sizeof(char));
-        strncpy(txt, hdr->txt, hdr->l_txt);
-        s = strtok(txt, "\n");
-        for (i = 0; i < n_hdr; ++i) {
-            SET_STRING_ELT(x, i, mkChar(_rtrim(s)));
-            s = strtok(NULL, "\n");
-        }
+
+    /* Get reference seqnames from header */
+    int nseqs, seqname_len;
+    const char **seqnames, *seqname;
+    seqnames = bcf_hdr_seqnames(hdr, &nseqs);
+    SET_VECTOR_ELT(ans, BCF_HDR_REF, NEW_STRING(nseqs));
+    ans_elt = VECTOR_ELT(ans, BCF_HDR_REF);
+    for (i = 0; i < nseqs; i++) {
+        seqname = seqnames[i];
+        seqname_len = _get_CRLF_pos(seqname);
+        SET_STRING_ELT(ans_elt, i, mkCharLen(seqname, seqname_len));
+    }
+    free(seqnames);
+
+    /* Get sample names from header */
+    int nsamples, samplename_len;
+    const char *samplename;
+    nsamples = bcf_hdr_nsamples(hdr);
+    SET_VECTOR_ELT(ans, BCF_HDR_SAMPLE, NEW_STRING(nsamples));
+    ans_elt = VECTOR_ELT(ans, BCF_HDR_SAMPLE);
+    for (i = 0; i < nsamples; i++) {
+        samplename = hdr->samples[i];
+        samplename_len = _get_CRLF_pos(samplename);
+        SET_STRING_ELT(ans_elt, i, mkCharLen(samplename, samplename_len));
     }
 
+    /* Get header lines from header */
+    SET_VECTOR_ELT(ans, BCF_HDR_HEADER, NEW_STRING(hdr->nhrec));
+    ans_elt = VECTOR_ELT(ans, BCF_HDR_HEADER);
+    kstring_t str = {0, 0, NULL};
+    for (i = 0; i < hdr->nhrec; i++) {
+        str.l = 0;
+        bcf_hrec_format(hdr->hrec[i], &str);
+        SET_STRING_ELT(ans_elt, i, mkChar(str.s));
+    }
+    free(str.s);
+
+    /* Set names on 'ans' */
     SEXP nm = NEW_CHARACTER(3);
     SET_NAMES(ans, nm);         /* protect */
     for (i = 0; i < BCF_HDR_LAST; ++i)
@@ -269,6 +250,8 @@ SEXP scan_bcf_header(SEXP ext)
     UNPROTECT(1);
     return ans;
 }
+
+#ifdef MIGRATE_ME
 
 // MIGRATION NOTE: The definition of the bcf1_t struct has changed **a lot** in
 // recent SAMtools/HTSlib. See src/samtools/bcftools/bcf.h in the RELEASE_3_7

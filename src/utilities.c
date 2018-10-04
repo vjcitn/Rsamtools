@@ -249,6 +249,17 @@ char *_rtrim(char *s)
     return s;
 }
 
+int _get_CRLF_pos(const char *s)
+{
+    int i = strlen(s) - 1;
+    while (i >= 0) {
+        if (s[i] != '\r')
+            break;
+        i--;
+    }
+    return i + 1;
+}
+
 /* scan-related */
 
 void _checkext(SEXP ext, SEXP tag, const char *lbl)
