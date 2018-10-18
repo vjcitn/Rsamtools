@@ -1,4 +1,4 @@
-fl <- system.file("extdata", "ex1.bcf", package="Rsamtools")
+fl <- system.file("extdata", "ex1.bcf.gz", package="Rsamtools")
 
 test_BcfFile_openclose <- function()
 {
