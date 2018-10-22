@@ -2,7 +2,6 @@
 #include <errno.h>
 #include <htslib/kstring.h>
 #include <htslib/vcf.h>
-#include <htslib/tbx.h>
 #include <htslib/bgzf.h>
 #include <hts_internal.h>
 #include "bcffile.h"

@@ -31,8 +31,12 @@ test_BcfFile_scanBcfHeader <- function()
         checkEquals(3L, length(h))
         checkEquals(2L, length(h[["Reference"]]))
         checkEquals("ex1.bam", h[["Sample"]])
-        checkEquals(1L, length(h[["Header"]]))
-        checkEquals(c(0, 0), dim(h[["Header"]][["META"]]))
+        checkEquals(5L, length(h[["Header"]]))
+        checkEquals(c(1, 1), dim(h[["Header"]][["META"]]))
+        checkEquals(c(1, 1), dim(h[["Header"]][["FILTER"]]))
+        checkEquals(c(24, 3), dim(h[["Header"]][["INFO"]]))
+        checkEquals(c(7, 3), dim(h[["Header"]][["FORMAT"]]))
+        checkEquals(c(2, 0), dim(h[["Header"]][["contig"]]))
     }
     bf <- open(BcfFile(fl, character(0)))
     .chk(scanBcfHeader(bf))
@@ -51,7 +55,7 @@ test_BcfFile_scanBcfHeader <- function()
 test_BcfFile_scanBcfHeader_no_SAMPLE_header <- function()
 {
     fl <- system.file(package="Rsamtools", "unitTests", "cases",
-                      "no_SAMPLE_header.vcf")
+                      "no_SAMPLE_header.vcf.gz")
     bf <- open(BcfFile(fl, character(0)))
     on.exit(close(bf))
     sample <- scanBcfHeader(bf)[["Sample"]]
@@ -79,14 +83,14 @@ test_BcfFile_scanBcfHeader_remote <- function()
 
     obs <- .Call(Rsamtools:::.scan_bcf_header, Rsamtools:::.extptr(file))
     close(file)
-    exp <- setNames(c(0L, 1092L, 29L), c("Reference", "Sample", "Header"))
-    checkIdentical(exp, sapply(obs, length))
+    exp <- setNames(c(1L, 1092L, 30L), c("Reference", "Sample", "Header"))
+    checkIdentical(exp, lengths(obs))
 }
 
 test_BcfFile_scanBcfHeader_no_header_line <- function()
 {
     fl <- system.file(package="Rsamtools", "unitTests", "cases",
-                      "no_header_line.vcf")
+                      "no_header_line.vcf.gz")
     msg <- NULL
     tryCatch(scanBcfHeader(fl), error=function(err) {
         msg <<- conditionMessage(err)
@@ -103,7 +107,7 @@ test_BcfFile_scan_noindex <- function()
     res <- scanBcf(bf, param=p)
     checkEquals(11L, length(res))
     checkEquals(3065L, res[["RecordsPerRange"]])
-    checkEquals(3065L, unique(sapply(res[1:9], length)))
+    checkEquals(3065L, unique(lengths(res[1:9])))
     checkEquals(1, length(res[["GENO"]]))
     checkEquals(3065L, length(res[["GENO"]][["PL"]]))
 

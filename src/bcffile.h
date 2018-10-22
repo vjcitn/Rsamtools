@@ -2,6 +2,7 @@
 #define _BCFFILE_H_
 
 #include <Rdefines.h>
+#include <htslib/tbx.h>
 #include <htslib/vcf.h>
 
 /* io_bcf.c */
