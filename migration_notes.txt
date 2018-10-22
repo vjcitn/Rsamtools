@@ -113,8 +113,8 @@ sam_utils.c, and the *_stubs.c files):
   bambuffer.c         done
   bam_data.c          done
   bamfile.c           done
-  bcffile.c           partially done   .Call entry points scan_bcf() and
-                                       as_bcf() not migrated yet.
+  bcffile.c           partially done   .Call entry point as_bcf() not
+                                       migrated yet.
                                        indexBcf() runs but is broken! (it
                                        calls .Call entry point index_bcf()).
   encode.c            nothing to do

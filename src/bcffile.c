@@ -2,17 +2,11 @@
 #include <errno.h>
 #include <htslib/kstring.h>
 #include <htslib/vcf.h>
+#include <htslib/tbx.h>
 #include <htslib/bgzf.h>
+#include <hts_internal.h>
 #include "bcffile.h"
 #include "utilities.h"
-
-#define smkChar(x) ((x) ? mkChar(x) : R_NaString)
-
-struct typemap {
-    uint32_t *id;
-    int *type, *mult;
-    int len;
-};
 
 enum {
     BCF_HDR_REF = 0, BCF_HDR_SAMPLE, BCF_HDR_HEADER, BCF_HDR_LAST
@@ -40,9 +34,21 @@ static htsFile *_bcf_tryopen(const char *fname, const char *mode)
     return vcf_open(fname, mode);
 }
 
-static hts_idx_t *_bcf_idx_load(const char *fname)
+static const char *_find_index(const char *fname)
 {
-    return bcf_index_load(fname);
+    static char fnidx2[999];
+
+    const char *fnidx = hts_idx_getfn(fname, ".csi");
+    if (fnidx == NULL) {
+        fnidx = hts_idx_getfn(fname, ".tbi");
+        if (fnidx == NULL)
+            return NULL;
+    }
+    int size = snprintf(fnidx2, sizeof(fnidx2), "%s", fnidx);
+    if (size >= sizeof(fnidx2))
+        Rf_error("Rsamtools internal error in _find_index(): "
+                 "fnidx2 string buffer too small");
+    return fnidx2;
 }
 
 static void _bcf_close(htsFile * bcf, int errmsg)
@@ -58,7 +64,7 @@ static void _bcffile_close(SEXP ext)
     if (NULL != bfile->file)
         vcf_close(bfile->file);
     if (NULL != bfile->index)
-        hts_idx_destroy(bfile->index);
+        tbx_destroy(bfile->index);
     bfile->file = NULL;
     bfile->index = NULL;
 }
@@ -79,6 +85,7 @@ SEXP bcffile_init()
     return R_NilValue;
 }
 
+/*
 SEXP bcffile_open(SEXP filename, SEXP indexname, SEXP filemode)
 {
     _checknames(filename, indexname, filemode);
@@ -114,6 +121,47 @@ SEXP bcffile_open(SEXP filename, SEXP indexname, SEXP filemode)
 
     return ext;
 }
+*/
+
+SEXP bcffile_open(SEXP filename, SEXP indexname, SEXP filemode)
+{
+    _checknames(filename, indexname, filemode);
+    if (Rf_length(filename) != 1)
+        Rf_error("'filename' must have length 1");
+
+    _BCF_FILE *bfile = Calloc(1, _BCF_FILE);
+
+    const char *cfile = translateChar(STRING_ELT(filename, 0));
+    bfile->file = _bcf_tryopen(cfile, CHAR(STRING_ELT(filemode, 0)));
+    if (bfile->file == NULL) {
+        Free(bfile);
+        Rf_error("'open' VCF/BCF failed\n  filename: %s", cfile);
+    }
+    bfile->index = NULL;
+    // Rf_length(indexname) will be 0 when scanBcfHeader() is called on a
+    // file path e.g. scanBcfHeader("chr22.vcf.gz")
+    if (Rf_length(indexname) == 1) {
+        const char *cindex = translateChar(STRING_ELT(indexname, 0));
+        const char *fnidx = _find_index(cindex);
+        if (fnidx == NULL) {
+            _bcf_close(bfile->file, 0);
+            Free(bfile);
+            Rf_error("no VCF/BCF index found\n  filename: %s", cfile);
+        }
+        bfile->index = tbx_index_load2(cfile, fnidx);
+        if (bfile->index == NULL) {
+            _bcf_close(bfile->file, 0);
+            Free(bfile);
+            Rf_error("'open' VCF/BCF index failed\n  index file: %s\n", fnidx);
+        }
+    }
+
+    SEXP ext = PROTECT(R_MakeExternalPtr(bfile, BCFFILE_TAG, filename));
+    R_RegisterCFinalizerEx(ext, _bcffile_finalizer, TRUE);
+    UNPROTECT(1);
+
+    return ext;
+}
 
 SEXP bcffile_close(SEXP ext)
 {
@@ -133,6 +181,7 @@ SEXP bcffile_isopen(SEXP ext)
     return ans;
 }
 
+/* BROKEN!! Always returns TRUE on an open BCF file! */
 SEXP bcffile_isvcf(SEXP ext)
 {
     SEXP ans = ScalarLogical(FALSE);
@@ -191,10 +240,8 @@ SEXP scan_bcf_header(SEXP ext)
 {
     _checkext(ext, BCFFILE_TAG, "scanBcfHeader");
     htsFile *bcf = BCFFILE(ext)->file;
-    if (hts_get_format(bcf)->format != vcf &&
-        0 != bgzf_seek(bcf->fp.bgzf, 0, SEEK_SET))
-    {
-        Rf_error("internal: failed to 'seek'");
+    if (0 != bgzf_seek(bcf->fp.bgzf, 0, SEEK_SET)) {
+        Rf_error("internal: failed to 'seek' on bcf file");
     }
     bcf_hdr_t *hdr = vcf_hdr_read(bcf);
     if (NULL == hdr)
@@ -242,193 +289,444 @@ SEXP scan_bcf_header(SEXP ext)
     free(str.s);
 
     /* Set names on 'ans' */
-    SEXP nm = NEW_CHARACTER(3);
-    SET_NAMES(ans, nm);         /* protect */
+    SEXP ans_names = NEW_CHARACTER(3);
+    SET_NAMES(ans, ans_names);         /* protect */
     for (i = 0; i < BCF_HDR_LAST; ++i)
-        SET_STRING_ELT(nm, i, mkChar(BCF_HDR_NM[i]));
+        SET_STRING_ELT(ans_names, i, mkChar(BCF_HDR_NM[i]));
 
     bcf_hdr_destroy(hdr);
     UNPROTECT(1);
     return ans;
 }
 
-#ifdef MIGRATE_ME
+/* See vcf_format() in Rhtslib/src/htslib-1.7/vcf.c for how to extract
+   information from a VCF/BCF line represented by a bcf1_t structure.
+   The _get_* functions below are following what vcf_format() does. */
 
-// MIGRATION NOTE: The definition of the bcf1_t struct has changed **a lot** in
-// recent SAMtools/HTSlib. See src/samtools/bcftools/bcf.h in the RELEASE_3_7
-// branch of Rsamtools for the old definition, and htslib/vcf.h for the new
-// one. In particular the old members referenced in the code below (str, l_str,
-// ref, alt, flt, info, fmt, n_alleles, n_gi, gi, pos, tid, qual) have been
-// renamed or have disappeared.
-
-static int _bcf_sync1(bcf1_t * b)
+static SEXP _get_CHROM(bcf1_t *bcf1, bcf_hdr_t *hdr)
 {
-    /* called when no FORMAT / GENO fields present;
-       from bcftools/bcf.c:bcf_sync */
-    char *p, *tmp[5];
-    int n;
-    for (p = b->str, n = 0; p < b->str + b->l_str; ++p) {
-        if (*p == 0 && p + 1 != b->str + b->l_str) {
-            if (n == 5) {
-                ++n;
-                break;
-            } else
-                tmp[n++] = p + 1;
-        }
-    }
-    if (n != 4)
-        return -1;
-    b->ref = tmp[0];
-    b->alt = tmp[1];
-    b->flt = tmp[2];
-    b->info = tmp[3];
-    b->fmt = 0;
-    if (*b->alt == 0)
-        b->n_alleles = 1;
-    else {
-        for (p = b->alt, n = 1; *p; ++p)
-            if (*p == ',')
-                ++n;
-        b->n_alleles = n + 1;
-    }
-    b->n_gi = 0;
-    return 0;
+    const char *key = hdr->id[BCF_DT_CTG][bcf1->rid].key;
+    return mkChar(key);
 }
 
-static void _bcf_gi2sxp(SEXP geno, const int i_rec, const bcf_hdr_t * h,
-                        bcf1_t * b)
+static SEXP _get_ID(bcf1_t *bcf1)
 {
-    SEXP nm = GET_NAMES(geno);
-    /* FIXME: more flexible geno not supported by bcftools */
+    if (bcf1->d.id == NULL)
+        return R_NaString;
+    return mkChar(bcf1->d.id);
+}
 
-    if (b->n_gi == 0)
-        return;
+static SEXP _get_REF(bcf1_t *bcf1)
+{
+    if (bcf1->n_allele == 0)
+        return R_NaString;
+    return mkChar(bcf1->d.allele[0]);
+}
 
-    /* from bcftools/bcf.c */
-    for (int i = 0; i < b->n_gi; ++i) {
-        const int off = i_rec * h->n_smpl;
-        SEXP g;
-        int t;
+static SEXP _get_ALT(bcf1_t *bcf1, kstring_t *ksbuf)
+{
+    ksbuf->l = 0;
+    if (bcf1->n_allele > 1) {
+        for (int i = 1; i < bcf1->n_allele; i++) {
+            if (i > 1)
+                kputc(',', ksbuf);
+            kputs(bcf1->d.allele[i], ksbuf);
+        }
+    } else {
+        kputc('.', ksbuf);
+    }
+    return mkCharLen(ksbuf->s, ksbuf->l);
+}
 
-        for (t = 0; t < Rf_length(nm); ++t)
-            if (bcf_str2int(CHAR(STRING_ELT(nm, t)), 2) == b->gi[i].fmt)
-                break;
-        if (Rf_length(nm) <= t)
-            Rf_error("failed to find fmt encoded as '%d'", b->gi[i].fmt);
-        g = VECTOR_ELT(geno, t);
+static SEXP _get_FILTER(bcf1_t *bcf1, bcf_hdr_t *hdr, kstring_t *ksbuf)
+{
+    ksbuf->l = 0;
+    if (bcf1->d.n_flt > 0) {
+        for (int i = 0; i < bcf1->d.n_flt; i++) {
+            if (i > 0)
+                kputc(';', ksbuf);
+            const char *key = hdr->id[BCF_DT_ID][bcf1->d.flt[i]].key;
+            kputs(key, ksbuf);
+        }
+    } else {
+        kputc('.', ksbuf);
+    }
+    return mkCharLen(ksbuf->s, ksbuf->l);
+}
 
-        if (b->gi[i].fmt == bcf_str2int("PL", 2)) {
-            const int x = b->n_alleles * (b->n_alleles + 1) / 2;
-            SEXP pl = Rf_allocMatrix(INTSXP, x, h->n_smpl);
-            SET_VECTOR_ELT(g, i_rec, pl); /* protect */
-            for (int j = 0; j < h->n_smpl; ++j) {
-                uint8_t *d = (uint8_t *) b->gi[i].data + j * x;
-                for (int k = 0; k < x; ++k)
-                    INTEGER(pl)[j * x + k] = d[k];
+static SEXP _get_INFO(bcf1_t *bcf1, bcf_hdr_t *hdr, kstring_t *ksbuf)
+{
+    ksbuf->l = 0;
+    int first = 1;
+    if (bcf1->n_info != 0) {
+        for (int i = 0; i < bcf1->n_info; i++) {
+            bcf_info_t *z = &bcf1->d.info[i];
+            if (!z->vptr)
+                continue;
+            if (first) {
+                first = 0;
+            } else {
+                kputc(';', ksbuf);
             }
-        } else if (b->gi[i].fmt == bcf_str2int("DP", 2)) {
-            int *dp = INTEGER(g) + off;
-            for (int j = 0; j < h->n_smpl; ++j)
-                *dp++ = ((uint16_t *) b->gi[i].data)[j];
-        } else if (b->gi[i].fmt == bcf_str2int("GQ", 2) ||
-                   b->gi[i].fmt == bcf_str2int("SP", 2)) {
-            int *gq = INTEGER(g) + off;
-            for (int j = 0; j < h->n_smpl; ++j)
-                *gq++ = ((uint8_t *) b->gi[i].data)[j];
-        } else if (b->gi[i].fmt == bcf_str2int("GT", 2)) {
-            int idx = off;
+            if (z->key >= hdr->n[BCF_DT_ID]) {
+                free(ksbuf->s);
+                bcf_destroy(bcf1);
+                error("Invalid VCF/BCF, the INFO index is too large");
+            }
+            const char *key = hdr->id[BCF_DT_ID][z->key].key;
+            kputs(key, ksbuf);
+            if (z->len <= 0)
+                continue;
+            kputc('=', ksbuf);
+            if (z->len == 1) {
+                int type = z->type;
+                switch (type)
+                {
+                    case BCF_BT_INT8:
+                        if (z->v1.i == bcf_int8_missing)
+                            kputc('.', ksbuf);
+                        else
+                            kputw(z->v1.i, ksbuf);
+                        break;
+                    case BCF_BT_INT16:
+                        if (z->v1.i == bcf_int16_missing)
+                            kputc('.', ksbuf);
+                        else
+                            kputw(z->v1.i, ksbuf);
+                        break;
+                    case BCF_BT_INT32:
+                        if (z->v1.i == bcf_int32_missing)
+                            kputc('.', ksbuf);
+                        else
+                            kputw(z->v1.i, ksbuf);
+                        break;
+                    case BCF_BT_FLOAT:
+                        if (bcf_float_is_missing(z->v1.f))
+                            kputc('.', ksbuf);
+                        else
+                            kputd(z->v1.f, ksbuf);
+                        break;
+                    case BCF_BT_CHAR:
+                        kputc(z->v1.i, ksbuf);
+                        break;
+                    default:
+                        free(ksbuf->s);
+                        bcf_destroy(bcf1);
+                        error("Unexpected type %d", type);
+                }
+            } else {
+                bcf_fmt_array(ksbuf, z->len, z->type, z->vptr);
+            }
+        }
+    }
+    if (first)
+        kputc('.', ksbuf);
+    return mkCharLen(ksbuf->s, ksbuf->l);
+}
+
+static SEXP _get_FORMAT(bcf1_t *bcf1, bcf_hdr_t *hdr, kstring_t *ksbuf)
+{
+    ksbuf->l = 0;
+    int first = 1;
+    if (bcf1->n_sample != 0) {
+        int n_fmt = (int) bcf1->n_fmt;
+        if (n_fmt != 0) {
+            for (int i = 0; i < n_fmt; i++) {
+                bcf_fmt_t *fmt = bcf1->d.fmt + i;
+                if (fmt->p == NULL)
+                    continue;
+                if (first) {
+                    first = 0;
+                } else {
+                    kputc(':', ksbuf);
+                }
+                int id = fmt->id;
+                if (id < 0) {
+                    free(ksbuf->s);
+                    bcf_destroy(bcf1);
+                    error("Invalid VCF/BCF: internal FORMAT id %d cannot "
+                          "be matched to a FORMAT tag in the header", id);
+                }
+                const char *tag = hdr->id[BCF_DT_ID][id].key;
+                kputs(tag, ksbuf);
+            }
+        }
+    }
+    if (first)
+        kputc('.', ksbuf);
+    return mkCharLen(ksbuf->s, ksbuf->l);
+}
+
+static void _load_int_vector(int *in, int n_sample,
+                             const bcf_fmt_t *fmt, const char *tag)
+{
+    const void *data;
+    int val;
+
+    if (fmt->n != 1)
+        error("FORMAT tag '%s' has an unexpected "
+              "number of values per sample", tag);
+    for (int j = 0; j < n_sample; j++) {
+        data = fmt->p + j * fmt->size;
+        switch (fmt->type) {
+            case BCF_BT_INT8:
+                val = ((uint8_t *) data)[0];
+            break;
+            case BCF_BT_INT16:
+                val = ((uint16_t *) data)[0];
+            break;
+            default:
+                error("FORMAT tag '%s' has an unexpected C type (%d)",
+                      tag, fmt->type);
+        }
+        *(in++) = val;
+    }
+    return;
+}
+
+static SEXP _make_int_matrix(int nrow, int n_sample,
+                             const bcf_fmt_t *fmt, const char *tag)
+{
+    const void *data;
+    int val;
+    SEXP ans;
+
+    if (fmt->n != nrow)
+        error("FORMAT tag '%s' has an unexpected "
+              "number of values per sample", tag);
+    ans = PROTECT(allocMatrix(INTSXP, nrow, n_sample));
+    for (int j = 0; j < n_sample; j++) {
+        data = fmt->p + j * fmt->size;
+        for (int i = 0; i < nrow; i++) {
+            switch (fmt->type) {
+                case BCF_BT_INT8:
+                    val = ((uint8_t *) data)[i];
+                break;
+                case BCF_BT_INT16:
+                    val = ((uint16_t *) data)[i];
+                break;
+                default:
+                    UNPROTECT(1);
+                    error("FORMAT tag '%s' has an unexpected C type (%d)",
+                          tag, fmt->type);
+            }
+            INTEGER(ans)[j * nrow + i] = val;
+        }
+    }
+    UNPROTECT(1);
+    return ans;
+}
+
+static SEXP _make_double_matrix(int nrow, int n_sample,
+                                const bcf_fmt_t *fmt, const char *tag)
+{
+    const void *data;
+    double val;
+    SEXP ans;
+
+    if (fmt->n != nrow)
+        error("FORMAT tag '%s' has an unexpected "
+              "number of values per sample", tag);
+    if (fmt->type != BCF_BT_FLOAT)
+        error("FORMAT tag '%s' has an unexpected C type (%d)", tag, fmt->type);
+    ans = PROTECT(allocMatrix(REALSXP, nrow, n_sample));
+    for (int j = 0; j < n_sample; j++) {
+        data = fmt->p + j * fmt->size;
+        for (int i = 0; i < nrow; i++) {
+            val = ((float *) data)[i];
+            REAL(ans)[j * nrow + i] = val;
+        }
+    }
+    UNPROTECT(1);
+    return ans;
+}
+
+static void _load_GENO(SEXP geno, const int n, bcf1_t *bcf1, bcf_hdr_t *hdr)
+{
+    /* FIXME: more flexible geno not supported by bcftools */
+    int n_fmt = (int) bcf1->n_fmt;
+    if (n_fmt == 0)
+        return;
+    int n_sample = bcf1->n_sample;
+    SEXP geno_names = GET_NAMES(geno);
+    for (int i = 0; i < n_fmt; i++) {
+        const bcf_fmt_t *fmt = bcf1->d.fmt + i;
+        if (fmt->p == NULL)
+            continue;
+        int id = fmt->id;
+        if (id < 0) {
+            bcf_destroy(bcf1);
+            error("Invalid VCF/BCF: FORMAT tag id=%d not present "
+                  "in header", id);
+        }
+
+        const char *tag = hdr->id[BCF_DT_ID][id].key;
+        int t;
+        for (t = 0; t < Rf_length(geno_names); t++) {
+            const char *nm = CHAR(STRING_ELT(geno_names, t));
+            if (strcmp(nm, tag) == 0)
+                break;
+        }
+        if (Rf_length(geno_names) <= t)
+            Rf_error("FORMAT tag '%s' not supported yet", tag);
+        SEXP geno_elt = VECTOR_ELT(geno, t);
+
+        int off = n * n_sample;  // could easily overflow! -> FIXME
+        if (strcmp(tag, "PL") == 0) {
+            /* 'geno_elt' is a list of matrices of integers */
+            const int nrow = bcf1->n_allele * (bcf1->n_allele + 1) / 2;
+            SEXP pl = _make_int_matrix(nrow, n_sample, fmt, tag);
+            SET_VECTOR_ELT(geno_elt, n, pl);  // protect
+        } else if (strcmp(tag, "DP") == 0 ||
+                   strcmp(tag, "GQ") == 0 ||
+                   strcmp(tag, "SP") == 0)
+        {
+            /* 'geno_elt' is an integer matrix with 1 row per sample */
+            _load_int_vector(INTEGER(geno_elt) + off, n_sample, fmt, tag);
+        } else if (strcmp(tag, "GT") == 0) {
+            /* 'geno_elt' is a character matrix with 1 row per sample */
+            if (fmt->type != BCF_BT_INT8)
+                error("FORMAT tag '%s' has an unexpected C type (%d)",
+                      tag, fmt->type);
+            if (fmt->n != 1)
+                error("FORMAT tag '%s' has an unexpected "
+                      "number of values per sample", tag);
             char s[4];
             s[3] = '\0';
-            for (int j = 0; j < h->n_smpl; ++j) {
-                int y = ((uint8_t *) b->gi[i].data)[j];
+            for (int j = 0; j < n_sample; j++) {
+                const void *data = fmt->p + j * fmt->size;
+                int y = ((uint8_t *) data)[0];
                 if (y >> 7 & 1)
-                    SET_STRING_ELT(g, idx++, mkChar("./."));
+                    SET_STRING_ELT(geno_elt, off++, mkChar("./."));
                 else {
                     s[0] = '0' + (y >> 3 & 7);
                     s[1] = "/|"[y >> 6 & 1];
                     s[2] = '0' + (y & 7);
-                    SET_STRING_ELT(g, idx++, mkChar(s));
+                    SET_STRING_ELT(geno_elt, off++, mkChar(s));
                 }
             }
-        } else if (b->gi[i].fmt == bcf_str2int("GL", 2)) {
-            const int x = b->n_alleles * (b->n_alleles + 1) / 2;
-            SEXP gl = Rf_allocMatrix(REALSXP, x, h->n_smpl);
-            SET_VECTOR_ELT(g, i_rec, gl); /* protect */
-            for (int j = 0; j < h->n_smpl; ++j) {
-                float *d = (float *) b->gi[i].data + j * x;
-                for (int k = 0; k < x; ++k)
-                    REAL(gl)[j * x + k] = d[k];
-            }
+        } else if (strcmp(tag, "GL") == 0) {
+            /* 'geno_elt' is a list of matrices of doubles */
+            const int nrow = bcf1->n_allele * (bcf1->n_allele + 1) / 2;
+            SEXP gl = _make_double_matrix(nrow, n_sample, fmt, tag);
+            SET_VECTOR_ELT(geno_elt, n, gl);  // protect
         }
     }
 }
 
-static int scan_bcf_range(htsFile * bcf, bcf_hdr_t * hdr, SEXP ans,
-                          int tid, int start, int end, int n)
+static void _scan_bcf_line(bcf1_t *bcf1, bcf_hdr_t *hdr,
+                           SEXP ans, int n, kstring_t *ksbuf)
 {
-    const int TID_BUFSZ = 8;
-    static char *buf = NULL;
-    bcf1_t *bcf1 = calloc(1, sizeof(bcf1_t));	/* free'd in bcf_destroy */
+    bcf_unpack(bcf1, BCF_UN_ALL);
+
+    SEXP chrom = PROTECT(_get_CHROM(bcf1, hdr));
+    SET_STRING_ELT(VECTOR_ELT(ans, BCF_TID), n, chrom);
+    UNPROTECT(1);
+
+    INTEGER(VECTOR_ELT(ans, BCF_POS))[n] = bcf1->pos + 1;
+
+    SEXP id = PROTECT(_get_ID(bcf1));
+    SET_STRING_ELT(VECTOR_ELT(ans, BCF_ID), n, id);
+    UNPROTECT(1);
+
+    SEXP ref = PROTECT(_get_REF(bcf1));
+    SET_STRING_ELT(VECTOR_ELT(ans, BCF_REF), n, ref);
+    UNPROTECT(1);
+
+    SEXP alt = PROTECT(_get_ALT(bcf1, ksbuf));
+    SET_STRING_ELT(VECTOR_ELT(ans, BCF_ALT), n, alt);
+    UNPROTECT(1);
+
+    REAL(VECTOR_ELT(ans, BCF_QUAL))[n] = bcf1->qual;
+
+    SEXP filter = PROTECT(_get_FILTER(bcf1, hdr, ksbuf));
+    SET_STRING_ELT(VECTOR_ELT(ans, BCF_FLT), n, filter);
+    UNPROTECT(1);
+
+    SEXP info = PROTECT(_get_INFO(bcf1, hdr, ksbuf));
+    SET_STRING_ELT(VECTOR_ELT(ans, BCF_INFO), n, info);
+    UNPROTECT(1);
+
+    SEXP format = PROTECT(_get_FORMAT(bcf1, hdr, ksbuf));
+    SET_STRING_ELT(VECTOR_ELT(ans, BCF_FMT), n, format);
+    UNPROTECT(1);
+
+    _load_GENO(VECTOR_ELT(ans, BCF_GENO), n, bcf1, hdr);
+    return;
+}
+
+static int _scan_bcf_lines(htsFile *bcf, bcf_hdr_t *hdr, SEXP ans, int n)
+{
+    bcf1_t *bcf1 = bcf_init();  /* free'd in bcf_destroy */
     if (NULL == bcf1)
-        Rf_error("scan_bcf_region: failed to allocate memory");
+        Rf_error("_scan_bcf_lines: failed to allocate memory");
     int sz = Rf_length(VECTOR_ELT(ans, BCF_TID));
-    int res;
-    if (NULL == buf)
-        buf = Calloc(TID_BUFSZ, char);	/* leaks, but oh well */
-    while (0 <= (res = vcf_read(bcf, hdr, bcf1))) {
-        if (tid >= 0) {
-            int pos = strlen(bcf1->ref);
-            pos = bcf1->pos + (pos > 0 ? pos : 1);
-            if (bcf1->tid != tid || bcf1->pos > end)
-                break;
-            if (!(pos >= start && end > bcf1->pos))
-                continue;
-        }
+    kstring_t ksbuf = {0, 0, NULL};
+    while (vcf_read(bcf, hdr, bcf1) >= 0) {
         if (n >= sz)
-            sz = _bcf_ans_grow(ans, BCF_BUFSIZE_GROW, hdr->n_smpl);
+            sz = _bcf_ans_grow(ans, BCF_BUFSIZE_GROW, bcf_hdr_nsamples(hdr));
         if (n >= sz) {
+            free(ksbuf.s);
             bcf_destroy(bcf1);
-            Rf_error("bcf_scan: failed to increase size; out of memory?");
+            Rf_error("_scan_bcf_lines: failed to increase size; out of memory?");
         }
-        if (hdr->ns)
-            SET_STRING_ELT(VECTOR_ELT(ans, BCF_TID), n,
-                           smkChar(hdr->ns[bcf1->tid]));
-        else {
-            snprintf(buf, TID_BUFSZ, "%d", bcf1->tid);
-            SET_STRING_ELT(VECTOR_ELT(ans, BCF_TID), n, smkChar(buf));
-        }
-        if (hts_get_format(bcf)->format == vcf && NULL == bcf1->ref)
-            if (_bcf_sync1(bcf1)) {
-                bcf_destroy(bcf1);
-                Rf_error("bcf_scan: unexpected number of fields in line %d",
-                         n + 1);
-            }
-        INTEGER(VECTOR_ELT(ans, BCF_POS))[n] = bcf1->pos + 1;
-        REAL(VECTOR_ELT(ans, BCF_QUAL))[n] = bcf1->qual;
-        SET_STRING_ELT(VECTOR_ELT(ans, BCF_ID), n, smkChar(bcf1->str));
-        SET_STRING_ELT(VECTOR_ELT(ans, BCF_REF), n, smkChar(bcf1->ref));
-        SET_STRING_ELT(VECTOR_ELT(ans, BCF_ALT), n, smkChar(bcf1->alt));
-        SET_STRING_ELT(VECTOR_ELT(ans, BCF_FLT), n, smkChar(bcf1->flt));
-        SET_STRING_ELT(VECTOR_ELT(ans, BCF_INFO), n, smkChar(bcf1->info));
-        SET_STRING_ELT(VECTOR_ELT(ans, BCF_FMT), n, smkChar(bcf1->fmt));
-        _bcf_gi2sxp(VECTOR_ELT(ans, BCF_GENO), n, hdr, bcf1);
-        if (hts_get_format(bcf)->format == vcf)
-            bcf1->ref = NULL;
+        _scan_bcf_line(bcf1, hdr, ans, n, &ksbuf);
         ++n;
     }
+    free(ksbuf.s);
     bcf_destroy(bcf1);
     return n;
 }
 
-SEXP scan_bcf(SEXP ext, SEXP space, SEXP tmpl)
+static int _scan_bcf_region(htsFile *bcf, bcf_hdr_t *hdr, tbx_t *idx,
+                            const char *spc, int start, int end,
+                            SEXP ans, int n)
 {
-    _checkparams(space, R_NilValue, R_NilValue);
+    int tid = tbx_name2id(idx, spc);
+    if (tid == -1)
+        Rf_error("'space' not in file: %s", spc);
+
+    hts_itr_t *itr = tbx_itr_queryi(idx, tid, start - 1, end);
+    if (itr == NULL)  /* invalid 'tid', should never happen */
+        Rf_error("'space' not in file: %s", spc);
+
+    bcf1_t *bcf1 = bcf_init();  /* free'd in bcf_destroy */
+    if (NULL == bcf1) {
+        tbx_itr_destroy(itr);
+        Rf_error("_scan_bcf_region: failed to allocate memory");
+    }
+    int sz = Rf_length(VECTOR_ELT(ans, BCF_TID));
+    kstring_t ksbuf = {0, 0, NULL};
+    while (tbx_itr_next(bcf, idx, itr, &ksbuf) >= 0) {
+        if (vcf_parse1(&ksbuf, hdr, bcf1) < 0) {
+            free(ksbuf.s);
+            bcf_destroy(bcf1);
+            tbx_itr_destroy(itr);
+            Rf_error("_scan_bcf_region: parse error");
+        }
+        if (n >= sz)
+            sz = _bcf_ans_grow(ans, BCF_BUFSIZE_GROW, bcf_hdr_nsamples(hdr));
+        if (n >= sz) {
+            free(ksbuf.s);
+            bcf_destroy(bcf1);
+            tbx_itr_destroy(itr);
+            Rf_error("_scan_bcf_region: failed to increase size; out of memory?");
+        }
+        _scan_bcf_line(bcf1, hdr, ans, n, &ksbuf);
+        ++n;
+    }
+    free(ksbuf.s);
+    bcf_destroy(bcf1);
+    tbx_itr_destroy(itr);
+    return n;
+}
+
+SEXP scan_bcf(SEXP ext, SEXP regions, SEXP tmpl)
+{
+    _checkparams(regions, R_NilValue, R_NilValue);
     _checkext(ext, BCFFILE_TAG, "scanBcf");
     htsFile *bcf = BCFFILE(ext)->file;
-    hts_idx_t *idx = BCFFILE(ext)->index;
-    if (hts_get_format(bcf)->format != vcf &&
-        0 != bgzf_seek(bcf->fp, 0, SEEK_SET))
-    {
+    if (0 != bgzf_seek(bcf->fp.bgzf, 0, SEEK_SET)) {
         Rf_error("internal: failed to 'seek' on bcf file");
     }
     bcf_hdr_t *hdr = vcf_hdr_read(bcf);
@@ -436,51 +734,41 @@ SEXP scan_bcf(SEXP ext, SEXP space, SEXP tmpl)
         Rf_error("no 'header' line \"#CHROM POS ID...\"?");
 
     int n = 0;
-    tmpl = PROTECT(Rf_duplicate(tmpl));
+    SEXP ans = PROTECT(Rf_duplicate(tmpl));
 
-    if (R_NilValue == space) {
-        SET_VECTOR_ELT(tmpl, BCF_RECS_PER_RANGE, NEW_INTEGER(1));
-        n = scan_bcf_range(bcf, hdr, tmpl, -1, -1, -1, n);
-        INTEGER(VECTOR_ELT(tmpl, BCF_RECS_PER_RANGE))[0] = n;
+    if (regions == R_NilValue) {
+        SET_VECTOR_ELT(ans, BCF_RECS_PER_RANGE, NEW_INTEGER(1));
+        n = _scan_bcf_lines(bcf, hdr, ans, n);
+        INTEGER(VECTOR_ELT(ans, BCF_RECS_PER_RANGE))[0] = n;
     } else {
-        SEXP spc = VECTOR_ELT(space, 0);
-        const int
-        *start = INTEGER(VECTOR_ELT(space, 1)),
-            *end = INTEGER(VECTOR_ELT(space, 2)), nspc = Rf_length(spc);
-        void *str2id = bcf_build_refhash(hdr);
-        SEXP nrec = NEW_INTEGER(nspc);
-        SET_VECTOR_ELT(tmpl, BCF_RECS_PER_RANGE, nrec);
-
-        for (int i = 0; i < nspc; ++i) {
-            int tid = bcf_str2id(str2id, CHAR(STRING_ELT(spc, i)));
-            if (tid < 0) {
-                bcf_str2id_destroy(str2id);
-                Rf_error("'space' not in file: %s", CHAR(STRING_ELT(spc, i)));
-            }
-            uint64_t off = bcf_idx_query(idx, tid, start[i]);
-            if (off == 0) {
-                INTEGER(nrec)[i] = 0;
-                continue;
-            }
-            bgzf_seek(bcf->fp, off, SEEK_SET);
-            n = scan_bcf_range(bcf, hdr, tmpl, tid, start[i], end[i], n);
+        tbx_t *idx = BCFFILE(ext)->index;
+        SEXP space = VECTOR_ELT(regions, 0);
+        const int *start = INTEGER(VECTOR_ELT(regions, 1)),
+                  *end = INTEGER(VECTOR_ELT(regions, 2)),
+                  nregions = Rf_length(space);
+        SEXP nrec = NEW_INTEGER(nregions);
+        SET_VECTOR_ELT(ans, BCF_RECS_PER_RANGE, nrec);
+        for (int i = 0; i < nregions; ++i) {
+            const char *spc = CHAR(STRING_ELT(space, i));
+            n = _scan_bcf_region(bcf, hdr, idx, spc, start[i], end[i], ans, n);
             if (i == 0)
                 INTEGER(nrec)[i] = n;
             else
                 INTEGER(nrec)[i] = n - INTEGER(nrec)[i - 1];
         }
-        bcf_str2id_destroy(str2id);
     }
-    _bcf_ans_grow(tmpl, -1 * n, hdr->n_smpl);
+    _bcf_ans_grow(ans, -1 * n, bcf_hdr_nsamples(hdr));
 
     UNPROTECT(1);
-    return tmpl;
+    return ans;
 }
+
+#ifdef MIGRATE_ME
 
 static int _as_bcf(htsFile * fin, const char *dict, htsFile * fout)
 {
-    bcf1_t *b = calloc(1, sizeof(bcf1_t));	/* free'd in bcf_destroy */
-    if (NULL == b)
+    bcf1_t *bcf1 = bcf_init();  /* free'd in bcf_destroy */
+    if (NULL == bcf1)
         Rf_error("_as_bcf: failed to allocate memory");
     bcf_hdr_t *hin, *hout;
     int r, count = 0;
@@ -488,17 +776,17 @@ static int _as_bcf(htsFile * fin, const char *dict, htsFile * fout)
     hin = hout = vcf_hdr_read(fin);
     vcf_dictread(fin, hin, dict);
     vcf_hdr_write(fout, hout);
-    while (0 <= (r = vcf_read(fin, hin, b))) {
-        if (NULL == b->ref)
+    while (0 <= (r = vcf_read(fin, hin, bcf1))) {
+        if (NULL == bcf1->ref)
             Rf_error("cannot (yet) coerce VCF files without FORMAT");
-        vcf_write(fout, hout, b);
+        vcf_write(fout, hout, bcf1);
         count++;
     }
 
     if (hin != hout)
         bcf_hdr_destroy(hout);
     bcf_hdr_destroy(hin);
-    bcf_destroy(b);
+    bcf_destroy(bcf1);
 
     return r >= -1 ? count : -1 * count;
 }
