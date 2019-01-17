@@ -35,7 +35,7 @@ int _delete_trailing_LF_or_CRLF(const char *buf, int buf_len);
 
 void _checkext(SEXP ext, SEXP tag, const char *lbl);
 void _checknames(SEXP filename, SEXP indexname, SEXP filemode);
-void _checkparams(SEXP space, SEXP keepFlags, SEXP isSimpleCigar);
+void _checkparams(SEXP regions, SEXP keepFlags, SEXP isSimpleCigar);
 
 /* pairing */
 
