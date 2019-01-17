@@ -76,20 +76,14 @@ static const R_CallMethodDef callMethods[] = {
     {".scan_fa", (DL_FUNC) & scan_fa, 6},
     /* tabixfile.c */
     {".tabixfile_init", (DL_FUNC) & tabixfile_init, 0},
-
-#ifdef MIGRATE_ME
-
     {".tabixfile_open", (DL_FUNC) & tabixfile_open, 2},
     {".tabixfile_close", (DL_FUNC) & tabixfile_close, 1},
     {".tabixfile_isopen", (DL_FUNC) & tabixfile_isopen, 1},
     {".index_tabix", (DL_FUNC) & index_tabix, 8},
     {".header_tabix", (DL_FUNC) & header_tabix, 1},
+    {".tabix_as_character", (DL_FUNC) & tabix_as_character, 6},
+    {".tabix_count", (DL_FUNC) & tabix_count, 6},
     {".scan_tabix", (DL_FUNC) & scan_tabix, 6},
-    {".tabix_as_character", (DL_FUNC) & tabix_as_character, 4},
-    {".tabix_count", (DL_FUNC) & tabix_count, 5},
-
-#endif  /* MIGRATE_ME */
-
     /* pileupbam.c */
     {".apply_pileups", (DL_FUNC) & apply_pileups, 5},
     /* bambuffer.c */

@@ -125,7 +125,7 @@ sam_utils.c, and the *_stubs.c files):
   R_init_Rsamtools.c  TO DO
   samtools_patch.c    nothing to do
   scan_bam_data.c     done
-  tabixfile.c         TO DO
+  tabixfile.c         done
   tagfilter.c         done
   utilities.c         done
   zip_compression.c   half done        RAZF is no longer provided with SAMtools!

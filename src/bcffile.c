@@ -28,18 +28,18 @@ static SEXP BCFFILE_TAG = NULL;
 
 static const int BCF_BUFSIZE_GROW = 100000;	/* initial # records */
 
-static htsFile *_bcf_tryopen(const char *fname, const char *mode)
+static htsFile *_bcf_tryopen(const char *fn, const char *mode)
 {
-    return vcf_open(fname, mode);
+    return vcf_open(fn, mode);
 }
 
-static const char *_find_index(const char *fname)
+static const char *_find_index(const char *fn)
 {
     static char fnidx2[999];
 
-    const char *fnidx = hts_idx_getfn(fname, ".csi");
+    const char *fnidx = hts_idx_getfn(fn, ".csi");
     if (fnidx == NULL) {
-        fnidx = hts_idx_getfn(fname, ".tbi");
+        fnidx = hts_idx_getfn(fn, ".tbi");
         if (fnidx == NULL)
             return NULL;
     }
@@ -93,11 +93,11 @@ SEXP bcffile_open(SEXP filename, SEXP indexname, SEXP filemode)
 
     bfile->file = NULL;
     if (0 != Rf_length(filename)) {
-        const char *cfile = translateChar(STRING_ELT(filename, 0));
-        bfile->file = _bcf_tryopen(cfile, CHAR(STRING_ELT(filemode, 0)));
+        const char *fn = translateChar(STRING_ELT(filename, 0));
+        bfile->file = _bcf_tryopen(fn, CHAR(STRING_ELT(filemode, 0)));
         if (NULL == bfile->file) {
             Free(bfile);
-            Rf_error("'open' BCF failed\n  filename: %s", cfile);
+            Rf_error("'open' BCF failed\n  filename: %s", fn);
         }
     }
 
@@ -130,11 +130,11 @@ SEXP bcffile_open(SEXP filename, SEXP indexname, SEXP filemode)
 
     _BCF_FILE *bfile = Calloc(1, _BCF_FILE);
 
-    const char *cfile = translateChar(STRING_ELT(filename, 0));
-    bfile->file = _bcf_tryopen(cfile, CHAR(STRING_ELT(filemode, 0)));
+    const char *fn = translateChar(STRING_ELT(filename, 0));
+    bfile->file = _bcf_tryopen(fn, CHAR(STRING_ELT(filemode, 0)));
     if (bfile->file == NULL) {
         Free(bfile);
-        Rf_error("'open' VCF/BCF failed\n  filename: %s", cfile);
+        Rf_error("'open' VCF/BCF failed\n  filename: %s", fn);
     }
     bfile->index = NULL;
     // Rf_length(indexname) will be 0 when scanBcfHeader() is called on a
@@ -145,9 +145,9 @@ SEXP bcffile_open(SEXP filename, SEXP indexname, SEXP filemode)
         if (fnidx == NULL) {
             _bcf_close(bfile->file, 0);
             Free(bfile);
-            Rf_error("no VCF/BCF index found\n  filename: %s", cfile);
+            Rf_error("no VCF/BCF index found\n  filename: %s", fn);
         }
-        bfile->index = tbx_index_load2(cfile, fnidx);
+        bfile->index = tbx_index_load2(fn, fnidx);
         if (bfile->index == NULL) {
             _bcf_close(bfile->file, 0);
             Free(bfile);
@@ -685,22 +685,22 @@ static int _scan_bcf_region(htsFile *bcf, bcf_hdr_t *hdr, tbx_t *idx,
     if (tid == -1)
         Rf_error("'space' not in file: %s", spc);
 
-    hts_itr_t *itr = tbx_itr_queryi(idx, tid, start - 1, end);
-    if (itr == NULL)  /* invalid 'tid', should never happen */
+    hts_itr_t *iter = tbx_itr_queryi(idx, tid, start - 1, end);
+    if (iter == NULL)  /* invalid 'tid', should never happen */
         Rf_error("'space' not in file: %s", spc);
 
     bcf1_t *bcf1 = bcf_init();  /* free'd in bcf_destroy */
     if (NULL == bcf1) {
-        tbx_itr_destroy(itr);
+        tbx_itr_destroy(iter);
         Rf_error("_scan_bcf_region: failed to allocate memory");
     }
     int sz = Rf_length(VECTOR_ELT(ans, BCF_TID));
     kstring_t ksbuf = {0, 0, NULL};
-    while (tbx_itr_next(bcf, idx, itr, &ksbuf) >= 0) {
+    while (tbx_itr_next(bcf, idx, iter, &ksbuf) >= 0) {
         if (vcf_parse1(&ksbuf, hdr, bcf1) < 0) {
             free(ksbuf.s);
             bcf_destroy(bcf1);
-            tbx_itr_destroy(itr);
+            tbx_itr_destroy(iter);
             Rf_error("_scan_bcf_region: parse error");
         }
         if (n >= sz)
@@ -708,7 +708,7 @@ static int _scan_bcf_region(htsFile *bcf, bcf_hdr_t *hdr, tbx_t *idx,
         if (n >= sz) {
             free(ksbuf.s);
             bcf_destroy(bcf1);
-            tbx_itr_destroy(itr);
+            tbx_itr_destroy(iter);
             Rf_error("_scan_bcf_region: failed to increase size; out of memory?");
         }
         _scan_bcf_line(bcf1, hdr, ans, n, &ksbuf);
@@ -716,7 +716,7 @@ static int _scan_bcf_region(htsFile *bcf, bcf_hdr_t *hdr, tbx_t *idx,
     }
     free(ksbuf.s);
     bcf_destroy(bcf1);
-    tbx_itr_destroy(itr);
+    tbx_itr_destroy(iter);
     return n;
 }
 
