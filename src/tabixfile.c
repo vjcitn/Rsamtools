@@ -1,4 +1,5 @@
 #include <stdlib.h>
+#include <htslib/hfile.h>
 #include <htslib/bgzf.h>
 #include "tabixfile.h"
 #include "utilities.h"
@@ -6,6 +7,22 @@
 static SEXP TABIXFILE_TAG = NULL;
 
 static const int TBX_INIT_SIZE = 32767;
+
+/* Stolen from htslib-1.7/hts.c */
+static int _hts_useek(htsFile *fp, long uoffset, int where)
+{
+    if (fp->is_bgzf)
+        return bgzf_useek(fp->fp.bgzf, uoffset, where);
+    else
+        return (hseek(fp->fp.hfile, uoffset, SEEK_SET) >= 0)? 0 : -1;
+}
+static long _hts_utell(htsFile *fp)
+{
+    if (fp->is_bgzf)
+        return bgzf_utell(fp->fp.bgzf);
+    else
+        return htell(fp->fp.hfile);
+}
 
 static void _tabixfile_close(SEXP ext)
 {
@@ -162,7 +179,7 @@ SEXP _header_lines(htsFile *file, tbx_t *index, const tbx_conf_t * conf)
 
     /* Create iterator that will iterate over the entire file. */
     hts_itr_t *iter = tbx_itr_queryi(index, HTS_IDX_REST, 0, 0);
-    if (NULL == iter)
+    if (iter == NULL)
         Rf_error("[internal] failed to obtain tabix iterator");
 
     uint64_t curr_off = 0;
@@ -170,14 +187,11 @@ SEXP _header_lines(htsFile *file, tbx_t *index, const tbx_conf_t * conf)
     int len;
 
     PROTECT_WITH_INDEX(lns = NEW_CHARACTER(0), &pidx);
-    BGZF *fp = hts_get_bgzfp(file);
-    if (NULL == fp)
-        Rf_error("[internal] hts_get_bgzfp() failed");
-    curr_off = bgzf_tell(fp);
+    curr_off = _hts_utell(file);
     while (NULL != (s = _tabix_read(file, index, iter, &len))) {
         if ((int) (*s) != conf->meta_char)
             break;
-	curr_off = bgzf_tell(fp);
+	curr_off = _hts_utell(file);
         if (0 == (i_lns % GROW_BY)) {
             lns = Rf_lengthgets(lns, Rf_length(lns) + GROW_BY);
             REPROTECT(lns, pidx);
@@ -185,8 +199,8 @@ SEXP _header_lines(htsFile *file, tbx_t *index, const tbx_conf_t * conf)
         SET_STRING_ELT(lns, i_lns++, mkChar(s));
     }
     tbx_itr_destroy(iter);
-    if (bgzf_seek(fp, curr_off, SEEK_SET) < 0)
-        Rf_error("[internal] bgzf_seek() failed");
+    if (_hts_useek(file, curr_off, SEEK_SET) < 0)
+        Rf_error("[internal] _hts_useek() failed");
 
     lns = Rf_lengthgets(lns, i_lns);
     UNPROTECT(1);
@@ -252,13 +266,13 @@ SEXP header_tabix(SEXP ext)
 }
 
 SEXP tabix_as_character(htsFile *file, tbx_t *index, hts_itr_t *iter,
-                        const int size, SEXP state, SEXP rownames)
+                        const int yield, SEXP state, SEXP rownames)
 {
     const double SCALE = 1.6;
     const tbx_conf_t conf = index->conf;
 
     int irec = 0, nrec, pidx;
-    nrec = NA_INTEGER == size ? TBX_INIT_SIZE : size;
+    nrec = NA_INTEGER == yield ? TBX_INIT_SIZE : yield;
     SEXP record = NEW_CHARACTER(nrec);
     PROTECT_WITH_INDEX(record, &pidx);
 
@@ -283,7 +297,7 @@ SEXP tabix_as_character(htsFile *file, tbx_t *index, hts_itr_t *iter,
 
         irec += 1;
 
-        if (NA_INTEGER != size && irec == nrec)
+        if (NA_INTEGER != yield && irec == nrec)
             break;
     }
 
@@ -294,7 +308,7 @@ SEXP tabix_as_character(htsFile *file, tbx_t *index, hts_itr_t *iter,
 }
 
 SEXP tabix_count(htsFile *file, tbx_t *index, hts_itr_t *iter,
-                 const int size, SEXP state, SEXP rownames)
+                 const int yield, SEXP state, SEXP rownames)
 {
     const tbx_conf_t conf = index->conf;
     const char *line;
@@ -305,7 +319,7 @@ SEXP tabix_count(htsFile *file, tbx_t *index, hts_itr_t *iter,
     if (R_NilValue != state)
         Rf_error("[internal] expected 'NULL' state in tabix_count");
 
-    while (NULL != (line = _tabix_read(file, index, iter, &linelen))) {
+    while ((line = _tabix_read(file, index, iter, &linelen)) != NULL) {
         if (conf.meta_char == *line)
             continue;
         irec += 1;
@@ -334,10 +348,10 @@ SEXP scan_tabix(SEXP ext, SEXP regions, SEXP yield, SEXP fun,
     PROTECT(result = NEW_LIST(nregions == 0 ? 1 : nregions));
     if (0 == nregions) {
         hts_itr_t *iter = tfile->iter;
-        if (NULL == iter) {
+        if (iter == NULL) {
             /* Create iterator that will iterate over the entire file. */
             iter = tbx_itr_queryi(index, HTS_IDX_REST, 0, 0);
-            if (NULL == iter)
+            if (iter == NULL)
                 Rf_error("[internal] failed to obtain tabix iterator");
             tfile->iter = iter;
         }

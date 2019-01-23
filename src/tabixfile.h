@@ -13,7 +13,7 @@ typedef struct {
 #define TABIXFILE(b) ((_TABIX_FILE *) R_ExternalPtrAddr(b))
 
 typedef SEXP SCAN_FUN(htsFile *file, tbx_t *index, hts_itr_t *iter,
-                      const int size, SEXP state, SEXP rownames);
+                      const int yield, SEXP state, SEXP rownames);
 
 SCAN_FUN tabix_as_character;
 

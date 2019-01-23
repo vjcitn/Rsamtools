@@ -2,6 +2,7 @@
 #include <errno.h>
 #include <htslib/kstring.h>
 #include <htslib/vcf.h>
+#include <htslib/hfile.h>
 #include <htslib/bgzf.h>
 #include <hts_internal.h>
 #include "bcffile.h"
@@ -28,6 +29,15 @@ static SEXP BCFFILE_TAG = NULL;
 
 static const int BCF_BUFSIZE_GROW = 100000;	/* initial # records */
 
+/* Stolen from htslib-1.7/hts.c */
+static int _hts_useek(htsFile *fp, long uoffset, int where)
+{
+    if (fp->is_bgzf)
+        return bgzf_useek(fp->fp.bgzf, uoffset, where);
+    else
+        return (hseek(fp->fp.hfile, uoffset, SEEK_SET) >= 0)? 0 : -1;
+}
+
 static htsFile *_bcf_tryopen(const char *fn, const char *mode)
 {
     return vcf_open(fn, mode);
@@ -45,8 +55,7 @@ static const char *_find_index(const char *fn)
     }
     int size = snprintf(fnidx2, sizeof(fnidx2), "%s", fnidx);
     if (size >= sizeof(fnidx2))
-        Rf_error("Rsamtools internal error in _find_index(): "
-                 "fnidx2 string buffer too small");
+        Rf_error("[internal] fnidx2 string buffer too small");
     return fnidx2;
 }
 
@@ -239,11 +248,11 @@ SEXP scan_bcf_header(SEXP ext)
 {
     _checkext(ext, BCFFILE_TAG, "scanBcfHeader");
     htsFile *bcf = BCFFILE(ext)->file;
-    if (0 != bgzf_seek(bcf->fp.bgzf, 0, SEEK_SET)) {
-        Rf_error("internal: failed to 'seek' on bcf file");
-    }
+    if (_hts_useek(bcf, 0, SEEK_SET) < 0)
+        Rf_error("[internal] _hts_useek() failed");
+
     bcf_hdr_t *hdr = vcf_hdr_read(bcf);
-    if (NULL == hdr)
+    if (hdr == NULL)
         Rf_error("no 'header' line \"#CHROM POS ID...\"?");
 
     SEXP ans = PROTECT(NEW_LIST(BCF_HDR_LAST));
@@ -725,9 +734,8 @@ SEXP scan_bcf(SEXP ext, SEXP regions, SEXP tmpl)
     _checkparams(regions, R_NilValue, R_NilValue);
     _checkext(ext, BCFFILE_TAG, "scanBcf");
     htsFile *bcf = BCFFILE(ext)->file;
-    if (0 != bgzf_seek(bcf->fp.bgzf, 0, SEEK_SET)) {
-        Rf_error("internal: failed to 'seek' on bcf file");
-    }
+    if (_hts_useek(bcf, 0, SEEK_SET) < 0)
+        Rf_error("[internal] _hts_useek() failed");
     bcf_hdr_t *hdr = vcf_hdr_read(bcf);
     if (NULL == hdr)
         Rf_error("no 'header' line \"#CHROM POS ID...\"?");
