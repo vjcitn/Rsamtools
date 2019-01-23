@@ -14,7 +14,7 @@ static int _hts_useek(htsFile *fp, long uoffset, int where)
     if (fp->is_bgzf)
         return bgzf_useek(fp->fp.bgzf, uoffset, where);
     else
-        return (hseek(fp->fp.hfile, uoffset, SEEK_SET) >= 0)? 0 : -1;
+        return (hseek(fp->fp.hfile, uoffset, where) >= 0)? 0 : -1;
 }
 static long _hts_utell(htsFile *fp)
 {

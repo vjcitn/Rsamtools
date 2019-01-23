@@ -29,13 +29,11 @@ static SEXP BCFFILE_TAG = NULL;
 
 static const int BCF_BUFSIZE_GROW = 100000;	/* initial # records */
 
-/* Stolen from htslib-1.7/hts.c */
-static int _hts_useek(htsFile *fp, long uoffset, int where)
+static int _hts_rewind(htsFile *file)
 {
-    if (fp->is_bgzf)
-        return bgzf_useek(fp->fp.bgzf, uoffset, where);
-    else
-        return (hseek(fp->fp.hfile, uoffset, SEEK_SET) >= 0)? 0 : -1;
+    int64_t ret = file->is_bgzf ? bgzf_seek(file->fp.bgzf, 0, SEEK_SET) :
+                                  hseek(file->fp.hfile, 0, SEEK_SET);
+    return ret >= 0 ? 0 : -1;
 }
 
 static htsFile *_bcf_tryopen(const char *fn, const char *mode)
@@ -248,8 +246,8 @@ SEXP scan_bcf_header(SEXP ext)
 {
     _checkext(ext, BCFFILE_TAG, "scanBcfHeader");
     htsFile *bcf = BCFFILE(ext)->file;
-    if (_hts_useek(bcf, 0, SEEK_SET) < 0)
-        Rf_error("[internal] _hts_useek() failed");
+    if (_hts_rewind(bcf) < 0)
+        Rf_error("[internal] _hts_rewind() failed");
 
     bcf_hdr_t *hdr = vcf_hdr_read(bcf);
     if (hdr == NULL)
@@ -734,8 +732,8 @@ SEXP scan_bcf(SEXP ext, SEXP regions, SEXP tmpl)
     _checkparams(regions, R_NilValue, R_NilValue);
     _checkext(ext, BCFFILE_TAG, "scanBcf");
     htsFile *bcf = BCFFILE(ext)->file;
-    if (_hts_useek(bcf, 0, SEEK_SET) < 0)
-        Rf_error("[internal] _hts_useek() failed");
+    if (_hts_rewind(bcf) < 0)
+        Rf_error("[internal] _hts_rewind() failed");
     bcf_hdr_t *hdr = vcf_hdr_read(bcf);
     if (NULL == hdr)
         Rf_error("no 'header' line \"#CHROM POS ID...\"?");
