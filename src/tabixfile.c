@@ -8,20 +8,50 @@ static SEXP TABIXFILE_TAG = NULL;
 
 static const int TBX_INIT_SIZE = 32767;
 
-/* Stolen from htslib-1.7/hts.c */
-static int _hts_useek(htsFile *fp, long uoffset, int where)
+/* Convenience wrappers around bgzf_tell(), bgzf_seek(), bgzf_getline(),
+   and tbx_itr_next(). */
+static int64_t _tbx_tell(htsFile *file)
 {
-    if (fp->is_bgzf)
-        return bgzf_useek(fp->fp.bgzf, uoffset, where);
-    else
-        return (hseek(fp->fp.hfile, uoffset, where) >= 0)? 0 : -1;
+    BGZF *fp;
+
+    if (!file->is_bgzf)
+        Rf_error("[internal] hmm.. this doesn't look like a tabix file, sorry");
+    fp = file->fp.bgzf;
+    return bgzf_tell(fp);
 }
-static long _hts_utell(htsFile *fp)
+static void _tbx_seek(htsFile *file, int64_t offset)
 {
-    if (fp->is_bgzf)
-        return bgzf_utell(fp->fp.bgzf);
-    else
-        return htell(fp->fp.hfile);
+    BGZF *fp;
+
+    if (!file->is_bgzf)
+        Rf_error("[internal] hmm.. this doesn't look like a tabix file, sorry");
+    fp = file->fp.bgzf;
+    if (bgzf_seek(fp, offset, SEEK_SET) < 0)
+        Rf_error("[internal] bgzf_seek() failed");
+    return;
+}
+static const char *_tbx_read_line(htsFile *file, int *len)
+{
+    BGZF *fp;
+    static kstring_t ksbuf = {0, 0, NULL};
+
+    if (!file->is_bgzf)
+        Rf_error("[internal] hmm.. this doesn't look like a tabix file, sorry");
+    fp = file->fp.bgzf;
+    if (bgzf_getline(fp, '\n', &ksbuf) < 0)
+        return NULL;
+    *len = ksbuf.l;
+    return ksbuf.s;
+}
+static const char *_tbx_read_next_rec(htsFile *file, tbx_t *index,
+                                      hts_itr_t *iter, int *len)
+{
+    static kstring_t ksbuf = {0, 0, NULL};
+
+    if (tbx_itr_next(file, index, iter, &ksbuf) < 0)
+        return NULL;
+    *len = ksbuf.l;
+    return ksbuf.s;
 }
 
 static void _tabixfile_close(SEXP ext)
@@ -51,17 +81,19 @@ static void _tabixfile_finalizer(SEXP ext)
     R_SetExternalPtrAddr(ext, NULL);
 }
 
+/* --- .Call ENTRY POINT --- */
 SEXP tabixfile_init()
 {
     TABIXFILE_TAG = install("TabixFile");
     return R_NilValue;
 }
 
+/* --- .Call ENTRY POINT --- */
 SEXP tabixfile_open(SEXP filename, SEXP indexname)
 {
-    if (!IS_CHARACTER(filename) || 1L != Rf_length(filename))
+    if (!IS_CHARACTER(filename) || LENGTH(filename) != 1)
         Rf_error("'filename' must be character(1)");
-    if (!IS_CHARACTER(indexname) || 1L != Rf_length(indexname))
+    if (!IS_CHARACTER(indexname) || LENGTH(indexname) != 1)
         Rf_error("'indexname' must be character(1)");
 
     _TABIX_FILE *tfile = Calloc(1, _TABIX_FILE);
@@ -90,6 +122,7 @@ SEXP tabixfile_open(SEXP filename, SEXP indexname)
     return ext;
 }
 
+/* --- .Call ENTRY POINT --- */
 SEXP tabixfile_close(SEXP ext)
 {
     _checkext(ext, TABIXFILE_TAG, "close");
@@ -97,6 +130,7 @@ SEXP tabixfile_close(SEXP ext)
     return ext;
 }
 
+/* --- .Call ENTRY POINT --- */
 SEXP tabixfile_isopen(SEXP ext)
 {
     SEXP ans = ScalarLogical(FALSE);
@@ -108,17 +142,18 @@ SEXP tabixfile_isopen(SEXP ext)
     return ans;
 }
 
+/* --- .Call ENTRY POINT --- */
 SEXP index_tabix(SEXP filename, SEXP format, SEXP seq, SEXP begin, SEXP end,
                  SEXP skip, SEXP comment, SEXP zeroBased)
 {
     tbx_conf_t conf = tbx_conf_gff;
 
-    if (!IS_CHARACTER(filename) || 1L != Rf_length(filename))
+    if (!IS_CHARACTER(filename) || LENGTH(filename) != 1)
         Rf_error("'filename' must be character(1)");
 
     const char *fn = translateChar(STRING_ELT(filename, 0));
 
-    if (1L == Rf_length(format)) {
+    if (LENGTH(format) == 1) {
         const char *txt = CHAR(STRING_ELT(format, 0));
         if (strcmp(txt, "gff") == 0)
             conf = tbx_conf_gff;
@@ -133,81 +168,78 @@ SEXP index_tabix(SEXP filename, SEXP format, SEXP seq, SEXP begin, SEXP end,
         else
             Rf_error("format '%s' unrecognized", txt);
     } else {
-        if (!IS_INTEGER(seq) || 1L != Rf_length(seq))
+        if (!IS_INTEGER(seq) || LENGTH(seq) != 1)
             Rf_error("'seq' must be integer(1)");
         conf.sc = INTEGER(seq)[0];
-        if (!IS_INTEGER(begin) || 1L != Rf_length(begin))
+        if (!IS_INTEGER(begin) || LENGTH(begin) != 1)
             Rf_error("'begin' must be integer(1)");
         conf.bc = INTEGER(begin)[0];
-        if (!IS_INTEGER(end) || 1L != Rf_length(end))
+        if (!IS_INTEGER(end) || LENGTH(end) != 1)
             Rf_error("'end' must be integer(1)");
         conf.ec = INTEGER(end)[0];
     }
 
-    if (IS_INTEGER(skip) && 1L == Rf_length(skip))
+    if (IS_INTEGER(skip) && LENGTH(skip) == 1)
         conf.line_skip = INTEGER(skip)[0];
-    if (IS_CHARACTER(comment) && 1L == Rf_length(comment))
+    if (IS_CHARACTER(comment) && LENGTH(comment) == 1)
         conf.meta_char = CHAR(STRING_ELT(comment, 0))[0];
-    if (IS_LOGICAL(zeroBased) && 1L == Rf_length(zeroBased) &&
-        TRUE == LOGICAL(zeroBased)[0])
+    if (IS_LOGICAL(zeroBased) && LENGTH(zeroBased) == 1 &&
+        LOGICAL(zeroBased)[0] == TRUE)
         conf.preset |= TBX_UCSC;
 
-    if (1 != bgzf_is_bgzf(fn))
+    if (bgzf_is_bgzf(fn) != 1)
         Rf_error("file does not appear to be bgzip'd");
-    if (-1L == tbx_index_build(fn, 0, &conf))
+    if (tbx_index_build(fn, 0, &conf) == -1)
         Rf_error("index build failed");
 
     return filename;
 }
 
-static const char *_tabix_read(htsFile *file, tbx_t *index, hts_itr_t *iter,
-                               int *len)
+static void _skip_header_lines(htsFile *file, const tbx_conf_t *conf)
 {
-    static kstring_t ksbuf = {0, 0, NULL};
+    const char *line;
+    int linelen;
 
-    if (tbx_itr_next(file, index, iter, &ksbuf) < 0)
-        return NULL;
-    *len = ksbuf.l;
-    return ksbuf.s;
+    int64_t curr_off = _tbx_tell(file);
+    while ((line = _tbx_read_line(file, &linelen)) != NULL) {
+        if (line[0] != conf->meta_char)
+            break;
+        curr_off = _tbx_tell(file);
+    }
+    _tbx_seek(file, curr_off);
+    return;
 }
 
-SEXP _header_lines(htsFile *file, tbx_t *index, const tbx_conf_t * conf)
+static SEXP _read_header_lines(htsFile *file, const tbx_conf_t *conf)
 {
+    int pidx, i_lns = 0;
+    const char *line;
+    int linelen;
     const int GROW_BY = 100;
-    SEXP lns;
-    int i_lns = 0, pidx;
 
-    /* Create iterator that will iterate over the entire file. */
-    hts_itr_t *iter = tbx_itr_queryi(index, HTS_IDX_REST, 0, 0);
-    if (iter == NULL)
-        Rf_error("[internal] failed to obtain tabix iterator");
+    SEXP lns = NEW_CHARACTER(0);
+    PROTECT_WITH_INDEX(lns, &pidx);
 
-    uint64_t curr_off = 0;
-    const char *s;
-    int len;
-
-    PROTECT_WITH_INDEX(lns = NEW_CHARACTER(0), &pidx);
-    curr_off = _hts_utell(file);
-    while (NULL != (s = _tabix_read(file, index, iter, &len))) {
-        if ((int) (*s) != conf->meta_char)
+    int64_t curr_off = _tbx_tell(file);
+    while ((line = _tbx_read_line(file, &linelen)) != NULL) {
+        if (line[0] != conf->meta_char)
             break;
-	curr_off = _hts_utell(file);
-        if (0 == (i_lns % GROW_BY)) {
-            lns = Rf_lengthgets(lns, Rf_length(lns) + GROW_BY);
+        curr_off = _tbx_tell(file);
+        if ((i_lns % GROW_BY) == 0) {
+            SET_LENGTH(lns, LENGTH(lns) + GROW_BY);
             REPROTECT(lns, pidx);
         }
-        SET_STRING_ELT(lns, i_lns++, mkChar(s));
+        SET_STRING_ELT(lns, i_lns, mkCharLen(line, linelen));
+        i_lns++;
     }
-    tbx_itr_destroy(iter);
-    if (_hts_useek(file, curr_off, SEEK_SET) < 0)
-        Rf_error("[internal] _hts_useek() failed");
+    _tbx_seek(file, curr_off);
 
-    lns = Rf_lengthgets(lns, i_lns);
+    SET_LENGTH(lns, i_lns);
     UNPROTECT(1);
-
     return lns;
 }
 
+/* --- .Call ENTRY POINT --- */
 SEXP header_tabix(SEXP ext)
 {
     _checkext(ext, TABIXFILE_TAG, "headerTabix");
@@ -216,7 +248,7 @@ SEXP header_tabix(SEXP ext)
     tbx_t *index = tfile->index;
 
     SEXP result = PROTECT(NEW_LIST(5)), tmp, nms;
-    nms = NEW_CHARACTER(Rf_length(result));
+    nms = NEW_CHARACTER(LENGTH(result));
     Rf_namesgets(result, nms);
     SET_STRING_ELT(nms, 0, mkChar("seqnames"));
     SET_STRING_ELT(nms, 1, mkChar("indexColumns"));
@@ -235,9 +267,8 @@ SEXP header_tabix(SEXP ext)
         SET_STRING_ELT(tmp, i, mkChar(seqnames[i]));
     free(seqnames);
 
-    const tbx_conf_t conf = index->conf;
-
     /* indexColumns */
+    const tbx_conf_t conf = index->conf;
     tmp = NEW_INTEGER(3);
     SET_VECTOR_ELT(result, 1, tmp);
     INTEGER(tmp)[0] = conf.sc;
@@ -259,54 +290,51 @@ SEXP header_tabix(SEXP ext)
     SET_VECTOR_ELT(result, 3, ScalarString(mkChar(comment)));
 
     /* header lines */
-    SET_VECTOR_ELT(result, 4, _header_lines(file, index, &conf));
+    SET_VECTOR_ELT(result, 4, _read_header_lines(file, &conf));
 
     UNPROTECT(1);
     return result;
 }
 
+/* --- .Call CALLBACK FUNCTION --- */
 SEXP tabix_as_character(htsFile *file, tbx_t *index, hts_itr_t *iter,
                         const int yield, SEXP state, SEXP rownames)
 {
+    int pidx, irec = 0;
+    const char *line;
+    int linelen;
     const double SCALE = 1.6;
-    const tbx_conf_t conf = index->conf;
-
-    int irec = 0, nrec, pidx;
-    nrec = NA_INTEGER == yield ? TBX_INIT_SIZE : yield;
-    SEXP record = NEW_CHARACTER(nrec);
-    PROTECT_WITH_INDEX(record, &pidx);
 
     if (R_NilValue != rownames)
         Rf_error("[internal] expected 'NULL' rownames in tabix_as_character");
     if (R_NilValue != state)
         Rf_error("[internal] expected 'NULL' state in tabix_as_character");
 
-    kstring_t ksbuf = {0, 0, NULL};
+    int nrec = yield == NA_INTEGER ? TBX_INIT_SIZE : yield;
+    SEXP record = NEW_CHARACTER(nrec);
+    PROTECT_WITH_INDEX(record, &pidx);
 
-    while (tbx_itr_next(file, index, iter, &ksbuf) >= 0) {
-        if (conf.meta_char == ksbuf.s[0])
+    const tbx_conf_t conf = index->conf;
+    while ((line = _tbx_read_next_rec(file, index, iter, &linelen)) != NULL) {
+        if (line[0] == conf.meta_char)
             continue;
-
         if (irec == nrec) {
             nrec = nrec * SCALE;
-            record = Rf_lengthgets(record, nrec);
+            SET_LENGTH(record, nrec);
             REPROTECT(record, pidx);
         }
-
-        SET_STRING_ELT(record, irec, mkCharLen(ksbuf.s, ksbuf.l));
-
-        irec += 1;
-
-        if (NA_INTEGER != yield && irec == nrec)
+        SET_STRING_ELT(record, irec, mkCharLen(line, linelen));
+        irec++;
+        if (yield != NA_INTEGER && irec == nrec)
             break;
     }
 
-    free(ksbuf.s);
-    record = Rf_lengthgets(record, irec);
+    SET_LENGTH(record, irec);
     UNPROTECT(1);
     return record;
 }
 
+/* --- .Call CALLBACK FUNCTION --- */
 SEXP tabix_count(htsFile *file, tbx_t *index, hts_itr_t *iter,
                  const int yield, SEXP state, SEXP rownames)
 {
@@ -319,8 +347,8 @@ SEXP tabix_count(htsFile *file, tbx_t *index, hts_itr_t *iter,
     if (R_NilValue != state)
         Rf_error("[internal] expected 'NULL' state in tabix_count");
 
-    while ((line = _tabix_read(file, index, iter, &linelen)) != NULL) {
-        if (conf.meta_char == *line)
+    while ((line = _tbx_read_next_rec(file, index, iter, &linelen)) != NULL) {
+        if (line[0] == conf.meta_char)
             continue;
         irec += 1;
     }
@@ -328,11 +356,12 @@ SEXP tabix_count(htsFile *file, tbx_t *index, hts_itr_t *iter,
     return ScalarInteger(irec);
 }
 
+/* --- .Call ENTRY POINT --- */
 SEXP scan_tabix(SEXP ext, SEXP regions, SEXP yield, SEXP fun,
                 SEXP state, SEXP rownames)
 {
     _checkparams(regions, R_NilValue, R_NilValue);
-    if (!IS_INTEGER(yield) || 1L != Rf_length(yield))
+    if (!IS_INTEGER(yield) || LENGTH(yield) != 1)
         Rf_error("'yieldSize' must be integer(1)");
 
     _checkext(ext, TABIXFILE_TAG, "scanTabix");
@@ -342,17 +371,18 @@ SEXP scan_tabix(SEXP ext, SEXP regions, SEXP yield, SEXP fun,
     SCAN_FUN *scan = (SCAN_FUN *) R_ExternalPtrAddr(fun);
 
     SEXP space = VECTOR_ELT(regions, 0);
-    const int nregions = Rf_length(space);
+    const int nregions = LENGTH(space);
     SEXP result, elt;
 
     PROTECT(result = NEW_LIST(nregions == 0 ? 1 : nregions));
-    if (0 == nregions) {
+    if (nregions == 0) {
         hts_itr_t *iter = tfile->iter;
         if (iter == NULL) {
-            /* Create iterator that will iterate over the entire file. */
+            _skip_header_lines(file, &(index->conf));
+            /* Create iterator that will iterate over all records. */
             iter = tbx_itr_queryi(index, HTS_IDX_REST, 0, 0);
             if (iter == NULL)
-                Rf_error("[internal] failed to obtain tabix iterator");
+                Rf_error("[internal] failed to create tabix iterator");
             tfile->iter = iter;
         }
         elt = scan(file, index, iter, INTEGER(yield)[0], state, rownames);
