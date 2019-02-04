@@ -71,12 +71,15 @@ SEXP bgzip(SEXP file, SEXP dest)
 }
 
 #ifdef MIGRATE_ME
-
 // MIGRATION NOTE: RAZF is no longer provided with SAMtools!
 #include "razf.h"
+#endif  /* MIGRATE_ME */
 
 SEXP razip(SEXP file, SEXP dest)
 {
+    Rf_error("razip() is temporarily disabled, sorry!");
+
+#ifdef MIGRATE_ME
     static const int WINDOW_SIZE = 4096;
     void *buffer;
     int infd, outfd, cnt;
@@ -102,8 +105,8 @@ SEXP razip(SEXP file, SEXP dest)
     razf_close(outp);
     if (gzclose(in) != Z_OK)
         _zip_error("closing input after compression", NULL, infd, outfd);
+#endif  /* MIGRATE_ME */
 
     return dest;
 }
 
-#endif  /* MIGRATE_ME */

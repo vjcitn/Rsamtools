@@ -8,7 +8,7 @@
 /* io_bcf.c */
 typedef struct {
     htsFile *file;
-    tbx_t *index;
+    hts_idx_t *index;
 } _BCF_FILE;
 
 #define BCFFILE(b) ((_BCF_FILE *) R_ExternalPtrAddr(b))

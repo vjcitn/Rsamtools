@@ -7,6 +7,7 @@
 #include <htslib/bgzf.h>
 #include <hts_internal.h>
 #include "bcffile.h"
+#include "COMPAT_bcf_hdr_read.h"
 #include "utilities.h"
 
 enum {
@@ -37,11 +38,11 @@ static int _hts_rewind(htsFile *file)
     return ret >= 0 ? 0 : -1;
 }
 
-/* This thin wrapper to vcf_close() is always called with errmsg=0 so is
+/* This thin wrapper to bcf_close() is always called with errmsg=0 so is
    not needed. */
 static void _bcf_close(htsFile *file, int errmsg)
 {
-    int err = vcf_close(file);
+    int err = bcf_close(file);
     if ((err != 0) && errmsg)
         Rf_error("_bcf_close error (%d)", err);
     return;
@@ -51,7 +52,7 @@ static void _bcffile_close(SEXP ext)
 {
     _BCF_FILE *bfile = BCFFILE(ext);
     if (bfile->index != NULL) {
-        tbx_destroy(bfile->index);
+        hts_idx_destroy(bfile->index);
         bfile->index = NULL;
     }
     if (bfile->file != NULL) {
@@ -79,6 +80,7 @@ SEXP bcffile_init()
 }
 
 /* --- .Call ENTRY POINT --- */
+/*
 SEXP bcffile_open(SEXP filename, SEXP indexname, SEXP filemode)
 {
     _checknames(filename, indexname, filemode);
@@ -89,22 +91,79 @@ SEXP bcffile_open(SEXP filename, SEXP indexname, SEXP filemode)
     bfile->index = NULL;
     if (LENGTH(filename) != 0) {
         const char *fn = translateChar(STRING_ELT(filename, 0));
-        bfile->file = vcf_open(fn, CHAR(STRING_ELT(filemode, 0)));
-        if (NULL == bfile->file) {
+        bfile->file = bcf_open(fn, CHAR(STRING_ELT(filemode, 0)));
+        if (bfile->file == NULL) {
             Free(bfile);
             Rf_error("'open' BCF failed\n  filename: %s", fn);
         }
 
         if (LENGTH(indexname) != 0) {
             const char *fnidx = translateChar(STRING_ELT(indexname, 0));
-            bfile->index = tbx_index_load2(fn, fnidx);
-            if (NULL == bfile->index) {
+            bfile->index = bcf_index_load2(fn, fnidx);
+            if (bfile->index == NULL) {
                 _bcf_close(bfile->file, 0);
                 Free(bfile);
                 Rf_error("'load' BCF index failed\n  indexname: %s\n", fnidx);
             }
         }
     }
+    SEXP ext = PROTECT(R_MakeExternalPtr(bfile, BCFFILE_TAG, filename));
+    R_RegisterCFinalizerEx(ext, _bcffile_finalizer, TRUE);
+    UNPROTECT(1);
+
+    return ext;
+}
+*/
+
+static const char *_find_index(const char *fn)
+{
+    static char fnidx2[999];
+
+    const char *fnidx = hts_idx_getfn(fn, ".csi");
+    if (fnidx == NULL) {
+        fnidx = hts_idx_getfn(fn, ".tbi");
+        if (fnidx == NULL)
+            return NULL;
+    }
+    int size = snprintf(fnidx2, sizeof(fnidx2), "%s", fnidx);
+    if (size >= sizeof(fnidx2))
+        Rf_error("[internal] fnidx2 string buffer too small");
+    return fnidx2;
+}
+
+SEXP bcffile_open(SEXP filename, SEXP indexname, SEXP filemode)
+{
+    _checknames(filename, indexname, filemode);
+    if (LENGTH(filename) != 1)
+        Rf_error("'filename' must have length 1");
+
+    _BCF_FILE *bfile = Calloc(1, _BCF_FILE);
+
+    const char *fn = translateChar(STRING_ELT(filename, 0));
+    bfile->file = bcf_open(fn, CHAR(STRING_ELT(filemode, 0)));
+    if (bfile->file == NULL) {
+        Free(bfile);
+        Rf_error("'open' VCF/BCF failed\n  filename: %s", fn);
+    }
+    bfile->index = NULL;
+    // LENGTH(indexname) will be 0 when scanBcfHeader() is called on a
+    // file path e.g. scanBcfHeader("chr22.vcf.gz")
+    if (LENGTH(indexname) == 1) {
+        const char *cindex = translateChar(STRING_ELT(indexname, 0));
+        const char *fnidx = _find_index(cindex);
+        if (fnidx == NULL) {
+            _bcf_close(bfile->file, 0);
+            Free(bfile);
+            Rf_error("no VCF/BCF index found\n  filename: %s", fn);
+        }
+        bfile->index = bcf_index_load2(fn, fnidx);
+        if (bfile->index == NULL) {
+            _bcf_close(bfile->file, 0);
+            Free(bfile);
+            Rf_error("'open' VCF/BCF index failed\n  index file: %s\n", fnidx);
+        }
+    }
+
     SEXP ext = PROTECT(R_MakeExternalPtr(bfile, BCFFILE_TAG, filename));
     R_RegisterCFinalizerEx(ext, _bcffile_finalizer, TRUE);
     UNPROTECT(1);
@@ -124,7 +183,7 @@ SEXP bcffile_close(SEXP ext)
 SEXP bcffile_isopen(SEXP ext)
 {
     SEXP ans = ScalarLogical(FALSE);
-    if (NULL != BCFFILE(ext)) {
+    if (BCFFILE(ext) != NULL) {
         _checkext(ext, BCFFILE_TAG, "isOpen");
         if (BCFFILE(ext)->file)
             ans = ScalarLogical(TRUE);
@@ -137,7 +196,7 @@ SEXP bcffile_isopen(SEXP ext)
 SEXP bcffile_isvcf(SEXP ext)
 {
     SEXP ans = ScalarLogical(FALSE);
-    if (NULL != BCFFILE(ext)) {
+    if (BCFFILE(ext) != NULL) {
         _checkext(ext, BCFFILE_TAG, "isVcf");
         if (BCFFILE(ext)->file &&
             hts_get_format(BCFFILE(ext)->file)->format == vcf)
@@ -148,88 +207,6 @@ SEXP bcffile_isvcf(SEXP ext)
     return ans;
 }
 
-/* WARNING: Between old samtools (version < 0.1.19) and htslib 1.7, the
-   behavior of vcf_hdr_read() has changed as follow: the new version now
-   checks for the presence of an existing tabix index and uses it to add
-   contigs not listed in the header.
-   vcf_hdr_read_OLD() below is a re-implementation of the old vcf_hdr_read()
-   i.e. it does NOT try to use a possible existing tabix index in order to
-   add missing contigs.
-   We use it in by scan_bcf_header() (instead of vcf_hdr_read()) so its
-   behavior remains the same as before the migration of Rsamtools to
-   htslib 1.7 (in particular the Reference component of the returned list
-   remains the same).
-
-   Testing:
-     library(VariantAnnotation)
-     vcf <- system.file("extdata", "structural.vcf",
-                        package="VariantAnnotation")
-     bgz <- bgzip(vcf, tempfile())
-     target <- scanBcfHeader(BcfFile(vcf, character(0)))[[1]]
-     stopifnot(identical(target,
-                         scanBcfHeader(BcfFile(bgz, character(0)))[[1]]))
-     idx <- indexTabix(bgz, "vcf")
-     stopifnot(identical(target,
-                         scanBcfHeader(BcfFile(bgz, character(0)))[[1]]))
-     stopifnot(identical(target,
-                         scanBcfHeader(BcfFile(bgz, idx))[[1]]))
-*/
-static bcf_hdr_t *vcf_hdr_read_OLD(htsFile *fp)
-{
-    kstring_t txt, *s = &fp->line;
-    int ret;
-    bcf_hdr_t *h;
-    h = bcf_hdr_init("r");
-    if (!h) {
-        hts_log_error("Failed to allocate bcf header");
-        return NULL;
-    }
-    txt.l = txt.m = 0; txt.s = 0;
-    while ((ret = hts_getline(fp, KS_SEP_LINE, s)) >= 0) {
-        if (s->l == 0) continue;
-        if (s->s[0] != '#') {
-            hts_log_error("No sample line");
-            goto error;
-        }
-        if (s->s[1] != '#' && fp->fn_aux) { // insert contigs here
-            kstring_t tmp = { 0, 0, NULL };
-            hFILE *f = hopen(fp->fn_aux, "r");
-            if (f == NULL) {
-                hts_log_error("Couldn't open \"%s\"", fp->fn_aux);
-                goto error;
-            }
-            while (tmp.l = 0, kgetline(&tmp, (kgets_func *) hgets, f) >= 0) {
-                char *tab = strchr(tmp.s, '\t');
-                if (tab == NULL) continue;
-                kputs("##contig=<ID=", &txt); kputsn(tmp.s, tab - tmp.s, &txt);
-                kputs(",length=", &txt); kputl(atol(tab), &txt);
-                kputsn(">\n", 2, &txt);
-            }
-            free(tmp.s);
-            if (hclose(f) != 0) {
-                hts_log_warning("Failed to close %s", fp->fn_aux);
-            }
-        }
-        kputsn(s->s, s->l, &txt);
-        kputc('\n', &txt);
-        if (s->s[1] != '#') break;
-    }
-    if ( ret < -1 ) goto error;
-    if ( !txt.s )
-    {
-        hts_log_error("Could not read the header");
-        goto error;
-    }
-    if ( bcf_hdr_parse(h, txt.s) < 0 ) goto error;
-    free(txt.s);
-    return h;
-
- error:
-    free(txt.s);
-    if (h) bcf_hdr_destroy(h);
-    return NULL;
-}
-
 /* --- .Call ENTRY POINT --- */
 SEXP scan_bcf_header(SEXP ext)
 {
@@ -238,7 +215,7 @@ SEXP scan_bcf_header(SEXP ext)
     if (_hts_rewind(file) < 0)
         Rf_error("[internal] _hts_rewind() failed");
 
-    bcf_hdr_t *hdr = vcf_hdr_read_OLD(file);
+    bcf_hdr_t *hdr = COMPAT_bcf_hdr_read(file);
     if (hdr == NULL)
         Rf_error("no 'header' line \"#CHROM POS ID...\"?");
 
@@ -297,7 +274,7 @@ SEXP scan_bcf_header(SEXP ext)
 static int _bcf_ans_grow(SEXP ans, R_len_t sz, int n_smpl)
 {
     R_len_t n = sz;
-    if (0 <= sz)
+    if (sz >= 0)
         n += LENGTH(VECTOR_ELT(ans, BCF_TID));
     else
         n *= -1;
@@ -335,7 +312,7 @@ static int _bcf_ans_grow(SEXP ans, R_len_t sz, int n_smpl)
 
 /* See vcf_format() in Rhtslib/src/htslib-1.7/vcf.c for how to extract
    information from a VCF/BCF line represented by a bcf1_t structure.
-   The _get_* functions below are following what vcf_format() does. */
+   The code of the _get_* functions below comes from vcf_format(). */
 
 static SEXP _get_CHROM(bcf1_t *bcf1, bcf_hdr_t *hdr)
 {
@@ -692,7 +669,7 @@ static void _scan_bcf_line(bcf1_t *bcf1, bcf_hdr_t *hdr,
 static int _scan_bcf_lines(htsFile *file, bcf_hdr_t *hdr, SEXP ans, int n)
 {
     bcf1_t *bcf1 = bcf_init();  /* free'd in bcf_destroy */
-    if (NULL == bcf1)
+    if (bcf1 == NULL)
         Rf_error("_scan_bcf_lines: failed to allocate memory");
     int sz = LENGTH(VECTOR_ELT(ans, BCF_TID));
     kstring_t ksbuf = {0, 0, NULL};
@@ -712,46 +689,42 @@ static int _scan_bcf_lines(htsFile *file, bcf_hdr_t *hdr, SEXP ans, int n)
     return n;
 }
 
-static int _scan_bcf_region(htsFile *file, bcf_hdr_t *hdr, tbx_t *idx,
+static int _scan_bcf_region(htsFile *file, bcf_hdr_t *hdr, hts_idx_t *idx,
                             const char *spc, int start, int end,
                             SEXP ans, int n)
 {
-    int tid = tbx_name2id(idx, spc);
+    int tid = bcf_hdr_name2id(hdr, spc);
     if (tid == -1)
         Rf_error("'space' not in file: %s", spc);
 
-    hts_itr_t *iter = tbx_itr_queryi(idx, tid, start - 1, end);
+    hts_itr_t *iter = bcf_itr_queryi(idx, tid, start - 1, end);
     if (iter == NULL)  /* invalid 'tid', should never happen */
         Rf_error("'space' not in file: %s", spc);
 
     bcf1_t *bcf1 = bcf_init();  /* free'd in bcf_destroy */
-    if (NULL == bcf1) {
-        tbx_itr_destroy(iter);
+    if (bcf1 == NULL) {
+        bcf_itr_destroy(iter);
         Rf_error("_scan_bcf_region: failed to allocate memory");
     }
     int sz = LENGTH(VECTOR_ELT(ans, BCF_TID));
     kstring_t ksbuf = {0, 0, NULL};
-    while (tbx_itr_next(file, idx, iter, &ksbuf) >= 0) {
-        if (vcf_parse1(&ksbuf, hdr, bcf1) < 0) {
-            free(ksbuf.s);
-            bcf_destroy(bcf1);
-            tbx_itr_destroy(iter);
-            Rf_error("_scan_bcf_region: parse error");
-        }
+    while (bcf_itr_next(file, iter, bcf1) >= 0) {
         if (n >= sz)
             sz = _bcf_ans_grow(ans, BCF_BUFSIZE_GROW, bcf_hdr_nsamples(hdr));
         if (n >= sz) {
-            free(ksbuf.s);
+            if (ksbuf.s != NULL)
+                free(ksbuf.s);
             bcf_destroy(bcf1);
-            tbx_itr_destroy(iter);
+            bcf_itr_destroy(iter);
             Rf_error("_scan_bcf_region: failed to increase size; out of memory?");
         }
         _scan_bcf_line(bcf1, hdr, ans, n, &ksbuf);
         ++n;
     }
-    free(ksbuf.s);
+    if (ksbuf.s != NULL)
+        free(ksbuf.s);
     bcf_destroy(bcf1);
-    tbx_itr_destroy(iter);
+    bcf_itr_destroy(iter);
     return n;
 }
 
@@ -763,7 +736,7 @@ SEXP scan_bcf(SEXP ext, SEXP regions, SEXP tmpl)
     htsFile *file = BCFFILE(ext)->file;
     if (_hts_rewind(file) < 0)
         Rf_error("[internal] _hts_rewind() failed");
-    bcf_hdr_t *hdr = vcf_hdr_read_OLD(file);
+    bcf_hdr_t *hdr = COMPAT_bcf_hdr_read(file);
     if (NULL == hdr)
         Rf_error("no 'header' line \"#CHROM POS ID...\"?");
 
@@ -775,7 +748,7 @@ SEXP scan_bcf(SEXP ext, SEXP regions, SEXP tmpl)
         n = _scan_bcf_lines(file, hdr, ans, n);
         INTEGER(VECTOR_ELT(ans, BCF_RECS_PER_RANGE))[0] = n;
     } else {
-        tbx_t *idx = BCFFILE(ext)->index;
+        hts_idx_t *idx = BCFFILE(ext)->index;
         SEXP space = VECTOR_ELT(regions, 0);
         const int *start = INTEGER(VECTOR_ELT(regions, 1)),
                   *end = INTEGER(VECTOR_ELT(regions, 2)),
@@ -797,30 +770,34 @@ SEXP scan_bcf(SEXP ext, SEXP regions, SEXP tmpl)
     return ans;
 }
 
-#ifdef MIGRATE_ME
-
 static int _as_bcf(htsFile * fin, const char *dict, htsFile * fout)
 {
     bcf1_t *bcf1 = bcf_init();  /* free'd in bcf_destroy */
-    if (NULL == bcf1)
+    if (bcf1 == NULL)
         Rf_error("_as_bcf: failed to allocate memory");
-    bcf_hdr_t *hin, *hout;
     int r, count = 0;
 
-    hin = hout = bcf_hdr_read(fin);
+    Rf_error("asBcf() is temporarily disabled, sorry!");
+
+#ifdef MIGRATE_ME
+    /* Not migrating this code for now. I'm not sure how asBcf() is supposed
+       to be used/called and I couldn't find any example or unit test for it.
+       Also no Bioconductor package seems to use it. */
+    bcf_hdr_t *hin, *hout;
+    hin = hout = COMPAT_bcf_hdr_read(fin);
     vcf_dictread(fin, hin, dict);
-    vcf_hdr_write(fout, hout);
+    bcf_hdr_write(fout, hout);
     while ((r = bcf_read(fin, hin, bcf1)) >= 0) {
         if (NULL == bcf1->ref)
             Rf_error("cannot (yet) coerce VCF files without FORMAT");
-        vcf_write(fout, hout, bcf1);
+        bcf_write(fout, hout, bcf1);
         count++;
     }
-
     if (hin != hout)
         bcf_hdr_destroy(hout);
     bcf_hdr_destroy(hin);
     bcf_destroy(bcf1);
+#endif  /* MIGRATE_ME */
 
     return r >= -1 ? count : -1 * count;
 }
@@ -828,19 +805,19 @@ static int _as_bcf(htsFile * fin, const char *dict, htsFile * fout)
 /* --- .Call ENTRY POINT --- */
 SEXP as_bcf(SEXP file, SEXP dictionary, SEXP destination)
 {
-    if (!IS_CHARACTER(file) || 1 != LENGTH(file))
+    if (!IS_CHARACTER(file) || LENGTH(file) != 1)
         Rf_error("'file' must be character(1)");
-    if (!IS_CHARACTER(dictionary) || 1 != LENGTH(dictionary))
+    if (!IS_CHARACTER(dictionary) || LENGTH(dictionary) != 1)
         Rf_error("'dictionary' must be character(1)");
-    if (!IS_CHARACTER(destination) || 1 != LENGTH(destination))
+    if (!IS_CHARACTER(destination) || LENGTH(destination) != 1)
         Rf_error("'destination' must be character(1)");
 
     htsFile *fin = vcf_open(translateChar(STRING_ELT(file, 0)), "r");
-    if (NULL == fin)
+    if (fin == NULL)
         Rf_error("failed to open VCF 'file'");
 
-    htsFile *fout = vcf_open(translateChar(STRING_ELT(destination, 0)), "wb");
-    if (NULL == fout)
+    htsFile *fout = bcf_open(translateChar(STRING_ELT(destination, 0)), "wb");
+    if (fout == NULL)
         Rf_error("failed to open BCF 'destination'");
 
     int count = _as_bcf(fin, translateChar(STRING_ELT(dictionary, 0)), fout);
@@ -853,8 +830,6 @@ SEXP as_bcf(SEXP file, SEXP dictionary, SEXP destination)
     return destination;
 }
 
-#endif  /* MIGRATE_ME */
-
 /* --- .Call ENTRY POINT --- */
 SEXP index_bcf(SEXP file)
 {
@@ -862,7 +837,7 @@ SEXP index_bcf(SEXP file)
         Rf_error("'file' must be character(1)");
     const char *fbcf = translateChar(STRING_ELT(file, 0));
     int status = bcf_index_build(fbcf, 0);
-    if (0 != status)
+    if (status != 0)
         Rf_error("failed to build index");
     char *fidx = (char *) R_alloc(strlen(fbcf) + 5, sizeof(char));
     sprintf(fidx, "%s.bci", fbcf);

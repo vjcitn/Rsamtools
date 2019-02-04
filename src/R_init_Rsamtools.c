@@ -19,13 +19,7 @@ static const R_CallMethodDef callMethods[] = {
 
     /* zip_compression.c */
     {".bgzip", (DL_FUNC) & bgzip, 2},
-
-#ifdef MIGRATE_ME
-
     {".razip", (DL_FUNC) & razip, 2},
-
-#endif  /* MIGRATE_ME */
-
     /* utilities.c */
     {".p_pairing", (DL_FUNC) & p_pairing, 12},
     {".find_mate_within_groups", (DL_FUNC) & find_mate_within_groups, 6},
@@ -58,13 +52,7 @@ static const R_CallMethodDef callMethods[] = {
     {".bcffile_isvcf", (DL_FUNC) & bcffile_isvcf, 1},
     {".scan_bcf_header", (DL_FUNC) & scan_bcf_header, 1},
     {".scan_bcf", (DL_FUNC) & scan_bcf, 3},
-
-#ifdef MIGRATE_ME
-
     {".as_bcf", (DL_FUNC) & as_bcf, 3},
-
-#endif  /* MIGRATE_ME */
-
     {".index_bcf", (DL_FUNC) & index_bcf, 1},
     /* fafile.c */
     {".fafile_init", (DL_FUNC) & fafile_init, 0},
