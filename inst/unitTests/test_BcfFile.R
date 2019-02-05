@@ -31,7 +31,7 @@ test_BcfFile_scanBcfHeader <- function()
         checkEquals(3L, length(h))
         checkEquals(2L, length(h[["Reference"]]))
         checkEquals("ex1.bam", h[["Sample"]])
-        checkEquals(0L, length(h[["Header"]]))
+        checkEquals(6L, length(h[["Header"]]))
     }
     bf <- open(BcfFile(fl, character(0)))
     .chk(scanBcfHeader(bf))
@@ -78,7 +78,7 @@ test_BcfFile_scanBcfHeader_remote <- function()
 
     obs <- .Call(Rsamtools:::.scan_bcf_header, Rsamtools:::.extptr(file))
     close(file)
-    exp <- setNames(c(1L, 1092L, 30L), c("Reference", "Sample", "Header"))
+    exp <- setNames(c(0L, 1092L, 29L), c("Reference", "Sample", "Header"))
     checkIdentical(exp, lengths(obs))
 }
 

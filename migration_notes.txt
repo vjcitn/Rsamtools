@@ -18,140 +18,51 @@ version of htslib is also 1.8.
 Note that a decently recent version of htslib (version 1.7) is wrapped in a
 Bioconductor package: Rhtslib
 
-samtools functions used in Rsamtools 1.33.0
--------------------------------------------
+Migration status
+----------------
 
-  Used in Rsamtools                Status in htslib/samtools 1.7
-  -------------------------------  ----------------------------------------
-  bam_init1           (bam.h)      yes (htslib/sam.h)
-  bam_destroy1        (bam.h)      yes (htslib/sam.h)
-  bam_index_build     (bam.h)      yes (htslib/sam.h)
-  bam_index_load      (bam.h)      yes (htslib/sam.h)
-  bam_index_destroy   (bam.h)      NO
-  bam_dup1            (bam.h)      yes (htslib/sam.h)
+In Rsamtools 1.99.0, every was migrated to Rhtslib, except asBcf() and razip()
+(for the later, this is due to RAZF no longer being provided with recent
+samtools).
+Also, eventhough applyPileups() was migrated (pileupbam.c), it fails to pass
+a few tests.
 
-  bam1_qual           (bam.h)      NO -- now bam_get_qual? (htslib/sam.h)
-  bam1_strand         (bam.h)      NO -- now bam_is_rev? (htslib/sam.h)
-  bam1_seq            (bam.h)      NO -- now bam_get_seq (htslib/sam.h)
-  bam1_seqi           (bam.h)      NO -- probably implemented/easy to implment
-  bam1_cigar          (bam.h)      NO -- now bam_get_cigar? (htslib/sam.h)
-  bam1_qname          (bam.h)      NO -- seems simple
-  bam_cigar2qlen      (bam.h)      YES
-  bam_tell            (bam.h)      NO -- now bgzf_tell (htslib/bgzf.h)
-  bam_open            (bam.h)      NO -- now bgzf_open (htslib/bgzf.h)
-  bam_read            (bam.h)      NO -- now bgzf_read (htslib/bgzf.h)
-  bam_seek            (bam.h)      NO -- now bgzf_seek (htslib/bgzf.h)
-  bam_header_read     (bam.h)      NO
-  bam_header_destory  (bam.h)      NO
-  bam_read1           (bam.h)      YES
-  bam_get_tid         (bam.h)      NO
-  bam_mplp_init       (bam.h)      YES
-  bam_mplp_set_maxcnt (bam.h)      YES
-  bam_iter_query      (bam.h)      NO
-  bam_iter_destroy    (bam.h)      NO
-  bam_iter_read       (bam.h)      NO
-  bam_mplp_destroy    (bam.h)      YES
-  bam_aux2i           (bam.h)      YES
-  bam_aux2A           (bam.h)      YES
-  bam_aux2d           (bam.h)      NO -- now bam_aux2f (htslib/sam.h)
-  bam_aux2f           (bam.h)      YES
-  bam_aux2Z           (bam.h)      YES
-  bam_plp_set_maxcont (bam.h)      YES
-  bam_plbuf_init      (bam.h)      YES
-  bam_aux_get         (bam.h)      YES
+Status of other Bioconductor packages
+-------------------------------------
 
-  BAM_CIGAR_STR       (bam.h)      YES
-  BAM_CIGAR_MASK      (bam.h)      YES
-  BAM_FUNMAP          (bam.h)      YES
-  BAM_FMUNMAP         (bam.h)      YES
+  LinkingTo: Rsamtools
 
-  vcf_open            (bcf.h)      YES -- now in htslib/vcf.h, return htsFile *
-  vcf_close           (bcf.h)      YES -- now in htslib/vcf.h
-  vcf_hdr_read        (bcf.h)      YES
-  vcf_read            (bcf.h)      YES
-  vcf_hdr_write       (bcf.h)      YES
-  vcf_write           (bcf.h)      YES
-  vcf_dictread        (bcf.h)      NO
+  - VariantAnnotation: migrated, passes R CMD check
 
-  bcf_open            (bcf.h)      YES -- now in htslib/vcf.h, return htsFile *
-  bcf_close           (bcf.h)      YES -- now in htslib/vcf.h
-  bcf_idx_load        (bcf.h)      NO -- now is bcf_index_load (htslib/vcf.h)
-  bcf_idx_destroy     (bcf.h)      NO -- now is hts_idx_destroy (htslib/hts.h)
-  bcf_idx_build       (bcf.h)      NO -- now is bcf_index_build (htslib/vcf.h)
-  bcf_hdr_destroy     (bcf.h)      YES
-  bcf_destroy         (bcf.h)      YES
-  bcf_build_refhash   (bcf.h)      NO
-  bcf_str2id          (bcf.h)      NO
-  bcf_str2id_destroy  (bcf.h)      NO
-  bcf_idx_query       (bcf.h)      NO
+  - ArrayExpressHTS: FAILS to compile!
 
-  ti_close            (tabix.h)    NO
+  - BitSeq: FAILS to compile!
 
-  faidx_fetch_seq2    (faidx.h)    NO
+  - DiffBind: FAILS to compile!
 
-Tip: To find the header files where a samtools function is defined (e.g. the
-bam_init1 function):
+  - h5vc: FAILS to compile!
 
-    find . -type d -name '.git' -prune -o -type f -name '*.h' -exec grep -Hw 'bam_init1' {} \;
+  - podkat: FAILS to compile!
 
-Run the above command twice, once in Rsamtools/src and once in Rhtslib to
-find the header file in Rsamtools and in htslib/samtools 1.7, respectively.
+  - qrqc: FAILS to compile!
 
-We might also run into data structure changes. They should only create problems
-if Rsamtools C/C++ code access members that have changed e.g. have been
-removed, renamed, or their type has changed.
+  - QuasR: FAILS to compile!
 
-Migration status, file by file
-------------------------------
+  - seqbias: FAILS to compile!
+             support for RAZF disabled
 
-C files (17 files, ignoring bam.c, bam_plbuf.c, bam_sort.c, sam.c, sam_opts.c,
-sam_utils.c, and the *_stubs.c files):
+  - TransView: migrated, passes R CMD check
 
-  File                Status           Notes
-  ------------------  --------------   ----------
-  as_bam.c            done
-  bambuffer.c         done
-  bam_data.c          done
-  bamfile.c           done
-  bcffile.c           partially done   .Call entry point as_bcf() not
-                                       migrated yet.
-                                       indexBcf() runs but is broken! (it
-                                       calls .Call entry point index_bcf()).
-  encode.c            nothing to do
-  fafile.c            done
-  idxstats.c          done
-  io_sam.c            done
-  pileupbam.c         done             applyPileups() runs but tests fail!
-  R_init_Rsamtools.c  TO DO
-  samtools_patch.c    nothing to do
-  scan_bam_data.c     done
-  tabixfile.c         done
-  tagfilter.c         done
-  utilities.c         done
-  zip_compression.c   half done        RAZF is no longer provided with SAMtools!
+  Other packages
 
-C++ files (6 files):
+  - AllelicImbalance: contains old BCF file (ERP000101.bcf, in
+    extdata/ERP000101_subset/) no longer supported by recent bcftools.
 
-  File                 Status            Assigned to
-  -------------------  ----------------  -----------
-  bam_mate_iter.cpp    done
-  pbuffer_wrapper.cpp  nothing to do
-  PileupBuffer.cpp     done
-  pileup.cpp           done
-  PosCacheColl.cpp     nothing to do
-  ResultManager.cpp    nothing to do
+  - biovizBase: no change needed, passes R CMD check.
 
-Compilation of code that doesn't compile yet was disabled by putting it inside
-#ifdef statements e.g.:
+  - compEpiTools: no change needed, passes R CMD check.
 
-  #ifdef MIGRATE_ME
-  ...
-  ... code that needs to be fixed ...
-  ...
-  #endif  /* MIGRATE_ME */
+  - SICtools: test_snpDiff() (from test_snpDiff.R) FAILS!
 
-files added to htslib:
+  - VariantTools: no change needed, passes R CMD check.
 
-  bam.c, bam_plbuf.c, bam_sort.c, sam.c, sam_header.h,
-  sam_opts.h, sam_utils.c, bam.h, bam_plbuf.h, sam.h, sam_opts.c
-  samtools.h, version.h.
