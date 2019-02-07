@@ -19,7 +19,6 @@ static const R_CallMethodDef callMethods[] = {
 
     /* zip_compression.c */
     {".bgzip", (DL_FUNC) & bgzip, 2},
-    {".razip", (DL_FUNC) & razip, 2},
     /* utilities.c */
     {".p_pairing", (DL_FUNC) & p_pairing, 12},
     {".find_mate_within_groups", (DL_FUNC) & find_mate_within_groups, 6},

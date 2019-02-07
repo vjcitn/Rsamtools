@@ -401,7 +401,7 @@ SEXP scan_tabix(SEXP ext, SEXP regions, SEXP yield, SEXP fun,
             iend = end[i];
             tid_name = CHAR(STRING_ELT(space, i));
             tid = tbx_name2id(index, tid_name);
-            if (0 > tid)
+            if (tid < 0)
                 Rf_error("'%s' not present in tabix index", tid_name);
             iter = tbx_itr_queryi(index, tid, ibeg, iend);
 
