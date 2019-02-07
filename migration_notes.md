@@ -76,13 +76,17 @@ of them. This was on a 64-bit Ubuntu 16.04.5 LTS laptop running R 3.6
     `inst/examples/example1.vcf.gz` to make it compatible with bcftools 1.7),
     passes `R CMD check`
 
-  - qrqc: migrated (changes not committed yet), passes `R CMD check`
+  - qrqc: migrated (changes not committed yet),
+    passes `R CMD check`
 
-  - QuasR: migrated (changes not committed yet), passes `R CMD check`
+  - QuasR: migrated (changes not committed yet),
+    passes `R CMD check`
 
-  - seqbias: migrated (changes not committed yet), passes `R CMD check`
+  - seqbias: migrated (changes not committed yet),
+    passes `R CMD check`
 
-  - TransView: migrated (changes not committed yet), passes `R CMD check`
+  - TransView: migrated (changes not committed yet),
+    passes `R CMD check`
 
 ### All software packages that use applyPileups() were tested
 
