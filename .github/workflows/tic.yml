@@ -92,7 +92,7 @@ jobs:
           brew install libgit2
           brew install --cask mactex
           brew tap homebrew/cask-fonts
-          brew cask install font-bitstream-vera
+          brew install --cask font-bitstream-vera
 
       - name: "[Stage] [macOS] Install system libs for pkgdown"
         if: runner.os == 'macOS' && matrix.config.pkgdown != ''
