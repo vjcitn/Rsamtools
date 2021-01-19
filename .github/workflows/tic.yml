@@ -89,7 +89,8 @@ jobs:
       - name: "[Stage] [macOS] Install libgit2"
         if: runner.os == 'macOS'
         run: |
-          brew install libgit2 texlive
+          brew install libgit2
+          brew install --cask mactex
           brew tap homebrew/cask-fonts
           brew cask install font-bitstream-vera
 
