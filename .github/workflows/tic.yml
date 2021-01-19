@@ -88,7 +88,10 @@ jobs:
 
       - name: "[Stage] [macOS] Install libgit2"
         if: runner.os == 'macOS'
-        run: brew install libgit2
+        run: |
+          brew install libgit2 texlive
+          brew tap homebrew/cask-fonts
+          brew cask install font-bitstream-vera
 
       - name: "[Stage] [macOS] Install system libs for pkgdown"
         if: runner.os == 'macOS' && matrix.config.pkgdown != ''
