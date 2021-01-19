@@ -83,10 +83,10 @@ jobs:
 
       - name: "[Stage] [Linux] Install curl and libgit2"
         if: runner.os == 'Linux'
-        run: |
-           sudo apt install libcurl4-openssl-dev libgit2-dev texlive texlive-font-utils \
-	   texlive-pstricks texlive-latex-extra texlive-fonts-extra texlive-bibtex-extra \
-           texlive-science texlive-luatex texlive-lang-european texi2html texinfo pandoc pandoc-citeproc biber
+        run: >
+           sudo apt install libcurl4-openssl-dev libgit2-dev texlive texlive-font-utils 
+	     texlive-pstricks texlive-latex-extra texlive-fonts-extra texlive-bibtex-extra 
+             texlive-science texlive-luatex texlive-lang-european texi2html texinfo pandoc pandoc-citeproc biber
 
       - name: "[Stage] [macOS] Install libgit2"
         if: runner.os == 'macOS'
