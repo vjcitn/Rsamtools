@@ -5,7 +5,7 @@
 
 SCAN_BAM_DATA _init_SCAN_BAM_DATA(SEXP result)
 {
-    SCAN_BAM_DATA sbd = Calloc(1, _SCAN_BAM_DATA);
+    SCAN_BAM_DATA sbd = R_Calloc(1, _SCAN_BAM_DATA);
     sbd->cigarhash = kh_init(str);
     sbd->result = result;
     sbd->mates_flag = NA_LOGICAL;
@@ -20,7 +20,7 @@ static void _Free_strhash(khash_t(str) * h)
     for (k = kh_begin(h); kh_end(h) != k; ++k)
         if (kh_exist(h, k)) {
             buf = (char *) kh_key(h, k);
-            Free(buf);
+            R_Free(buf);
         }
     kh_destroy(str, h);
 }
@@ -28,7 +28,7 @@ static void _Free_strhash(khash_t(str) * h)
 void _Free_SCAN_BAM_DATA(SCAN_BAM_DATA sbd)
 {
     _Free_strhash(sbd->cigarhash);
-    Free(sbd);
+    R_Free(sbd);
 }
 
 static void _grow_SCAN_BAM_DATA_tags(SEXP tags, int len)
@@ -162,7 +162,7 @@ void _finish1range_SCAN_BAM_DATA(SCAN_BAM_DATA sbd, bam_header_t *header,
             s = Rf_lengthgets(s, sbd->icnt);
             SET_VECTOR_ELT(r, i, s);
             memcpy(INTEGER(s), sbd->flag, sbd->icnt * sizeof(int));
-            Free(sbd->flag);
+            R_Free(sbd->flag);
             break;
         case RNAME_IDX:
             s = Rf_lengthgets(s, sbd->icnt);
@@ -170,32 +170,32 @@ void _finish1range_SCAN_BAM_DATA(SCAN_BAM_DATA sbd, bam_header_t *header,
             memcpy(INTEGER(s), sbd->rname, sbd->icnt * sizeof(int));
             _as_rname(s, (const char **) header->target_name,
                       header->n_targets);
-            Free(sbd->rname);
+            R_Free(sbd->rname);
             break;
         case STRAND_IDX:
             s = Rf_lengthgets(s, sbd->icnt);
             SET_VECTOR_ELT(r, i, s);
             memcpy(INTEGER(s), sbd->strand, sbd->icnt * sizeof(int));
             _as_strand(s);
-            Free(sbd->strand);
+            R_Free(sbd->strand);
             break;
         case POS_IDX:
             s = Rf_lengthgets(s, sbd->icnt);
             SET_VECTOR_ELT(r, i, s);
             memcpy(INTEGER(s), sbd->pos, sbd->icnt * sizeof(int));
-            Free(sbd->pos);
+            R_Free(sbd->pos);
             break;
         case QWIDTH_IDX:
             s = Rf_lengthgets(s, sbd->icnt);
             SET_VECTOR_ELT(r, i, s);
             memcpy(INTEGER(s), sbd->qwidth, sbd->icnt * sizeof(int));
-            Free(sbd->qwidth);
+            R_Free(sbd->qwidth);
             break;
         case MAPQ_IDX:
             s = Rf_lengthgets(s, sbd->icnt);
             SET_VECTOR_ELT(r, i, s);
             memcpy(INTEGER(s), sbd->mapq, sbd->icnt * sizeof(int));
-            Free(sbd->mapq);
+            R_Free(sbd->mapq);
             break;
         case MRNM_IDX:
             s = Rf_lengthgets(s, sbd->icnt);
@@ -203,28 +203,28 @@ void _finish1range_SCAN_BAM_DATA(SCAN_BAM_DATA sbd, bam_header_t *header,
             memcpy(INTEGER(s), sbd->mrnm, sbd->icnt * sizeof(int));
             _as_rname(s, (const char **) header->target_name,
                       header->n_targets);
-            Free(sbd->mrnm);
+            R_Free(sbd->mrnm);
             break;
         case MPOS_IDX:
             s = Rf_lengthgets(s, sbd->icnt);
             SET_VECTOR_ELT(r, i, s);
             memcpy(INTEGER(s), sbd->mpos, sbd->icnt * sizeof(int));
-            Free(sbd->mpos);
+            R_Free(sbd->mpos);
             break;
         case ISIZE_IDX:
             s = Rf_lengthgets(s, sbd->icnt);
             SET_VECTOR_ELT(r, i, s);
             memcpy(INTEGER(s), sbd->isize, sbd->icnt * sizeof(int));
-            Free(sbd->isize);
+            R_Free(sbd->isize);
             break;
         case QNAME_IDX:
             s = Rf_lengthgets(s, sbd->icnt);
             SET_VECTOR_ELT(r, i, s);
             for (j = 0; j < sbd->icnt; ++j) {
                 SET_STRING_ELT(s, j, mkChar(sbd->qname[j]));
-                Free(sbd->qname[j]);
+                R_Free(sbd->qname[j]);
             }
-            Free(sbd->qname);
+            R_Free(sbd->qname);
             break;
         case CIGAR_IDX:
             s = Rf_lengthgets(s, sbd->icnt);
@@ -234,21 +234,21 @@ void _finish1range_SCAN_BAM_DATA(SCAN_BAM_DATA sbd, bam_header_t *header,
                     SET_STRING_ELT(s, j, NA_STRING);
                 else
                     SET_STRING_ELT(s, j, mkChar(sbd->cigar[j]));
-            Free(sbd->cigar);
+            R_Free(sbd->cigar);
             break;
         case SEQ_IDX:
             s = _as_XStringSet(sbd->seq, sbd->icnt, "DNAString");
             SET_VECTOR_ELT(r, i, s);
             for (j = 0; j < sbd->icnt; ++j)
-                Free(sbd->seq[j]);
-            Free(sbd->seq);
+                R_Free(sbd->seq[j]);
+            R_Free(sbd->seq);
             break;
         case QUAL_IDX:
             s = _as_PhredQuality(sbd->qual, sbd->icnt);
             SET_VECTOR_ELT(r, i, s);
             for (j = 0; j < sbd->icnt; ++j)
-                Free(sbd->qual[j]);
-            Free(sbd->qual);
+                R_Free(sbd->qual[j]);
+            R_Free(sbd->qual);
             break;
         case TAG_IDX:
             _grow_SCAN_BAM_DATA_tags(s, sbd->icnt);
@@ -257,14 +257,14 @@ void _finish1range_SCAN_BAM_DATA(SCAN_BAM_DATA sbd, bam_header_t *header,
             s = Rf_lengthgets(s, sbd->icnt);
             SET_VECTOR_ELT(r, i, s);
             memcpy(INTEGER(s), sbd->partition, Rf_length(s) * sizeof(int));
-            Free(sbd->partition);
+            R_Free(sbd->partition);
             break;
         case MATES_IDX:
             s = Rf_lengthgets(s, sbd->icnt);
             SET_VECTOR_ELT(r, i, s);
             memcpy(INTEGER(s), sbd->mates, sbd->icnt * sizeof(int));
             _as_factor(s, mates_lvls, 3);
-            Free(sbd->mates);
+            R_Free(sbd->mates);
             break;
         default:
             Rf_error("[Rsamtools internal] unhandled _finish1range_BAM_DATA");

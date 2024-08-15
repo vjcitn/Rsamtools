@@ -3,18 +3,18 @@
 C_TAGFILTER _tagFilter_as_C_types(SEXP tl) {
     if(LENGTH(tl) == 0)
         return NULL;
-    C_TAGFILTER tagfilt = Calloc(1, _C_TAGFILTER);
+    C_TAGFILTER tagfilt = R_Calloc(1, _C_TAGFILTER);
     SEXP nmssxp = Rf_getAttrib(tl, R_NamesSymbol);
     /* convert tagnames */
     int len = LENGTH(nmssxp);
     tagfilt->len = len;
-    tagfilt->tagnames = (const char**) Calloc(len, char*);
+    tagfilt->tagnames = (const char**) R_Calloc(len, char*);
     for(int i = 0; i < len; ++i) {
         tagfilt->tagnames[i] = CHAR(STRING_ELT(nmssxp, i));
     }
 
     /* allocate for elements */
-    tagfilt->elts = Calloc(len, _TAGFILTER_ELT);
+    tagfilt->elts = R_Calloc(len, _TAGFILTER_ELT);
 
     for(int i = 0; i < len; ++i) {
         SEXP sxp_elt = VECTOR_ELT(tl, i);
@@ -30,7 +30,7 @@ C_TAGFILTER _tagFilter_as_C_types(SEXP tl) {
         case STRSXP: /* CHAR */
             tagfilt->elts[i].len = elt_len;
             tagfilt->elts[i].type = TAGFILT_T_STRING;
-            tagfilt->elts[i].ptr = (const char**) Calloc(elt_len, char*);
+            tagfilt->elts[i].ptr = (const char**) R_Calloc(elt_len, char*);
             for(int j = 0; j < elt_len; ++j) {
                 ((const char**) tagfilt->elts[i].ptr)[j] =
                     CHAR(STRING_ELT(sxp_elt, j));
@@ -46,15 +46,15 @@ C_TAGFILTER _tagFilter_as_C_types(SEXP tl) {
 
 void _Free_C_TAGFILTER(C_TAGFILTER ctf) {
     if(ctf) {
-        Free(ctf->tagnames);
+        R_Free(ctf->tagnames);
         if(ctf->elts) {
             for(int i = 0; i < ctf->len; ++i) {
                 if(ctf->elts[i].type == TAGFILT_T_STRING)
-                    Free(ctf->elts[i].ptr);
+                    R_Free(ctf->elts[i].ptr);
             }
-            Free(ctf->elts);
+            R_Free(ctf->elts);
         }
-        Free(ctf);
+        R_Free(ctf);
     }
 }
 

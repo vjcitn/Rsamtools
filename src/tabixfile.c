@@ -77,7 +77,7 @@ static void _tabixfile_finalizer(SEXP ext)
         return;
     _tabixfile_close(ext);
     _TABIX_FILE *tfile = TABIXFILE(ext);
-    Free(tfile);
+    R_Free(tfile);
     R_SetExternalPtrAddr(ext, NULL);
 }
 
@@ -96,12 +96,12 @@ SEXP tabixfile_open(SEXP filename, SEXP indexname)
     if (!IS_CHARACTER(indexname) || LENGTH(indexname) != 1)
         Rf_error("'indexname' must be character(1)");
 
-    _TABIX_FILE *tfile = Calloc(1, _TABIX_FILE);
+    _TABIX_FILE *tfile = R_Calloc(1, _TABIX_FILE);
 
     const char *fn = translateChar(STRING_ELT(filename, 0));
     tfile->file = hts_open(fn, "r");
     if (tfile->file == NULL) {
-        Free(tfile);
+        R_Free(tfile);
         Rf_error("failed to open file: %s", fn);
     }
 
@@ -109,7 +109,7 @@ SEXP tabixfile_open(SEXP filename, SEXP indexname)
     tfile->index = tbx_index_load2(fn, fnidx);
     if (tfile->index == NULL) {
         hts_close(tfile->file);
-        Free(tfile);
+        R_Free(tfile);
         Rf_error("failed to open index file: %s", fnidx);
     }
 

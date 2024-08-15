@@ -10,14 +10,14 @@ static SEXP BAMBUFFER_TAG = NULL;
 
 BAM_BUFFER bambuffer_new(int n, int as_mates)
 {
-    BAM_BUFFER buf = Calloc(1, _BAM_BUFFER);
+    BAM_BUFFER buf = R_Calloc(1, _BAM_BUFFER);
     buf->i = 0;
     buf->n = n;
-    buf->buffer = Calloc(n, bam1_t *);
+    buf->buffer = R_Calloc(n, bam1_t *);
     if (as_mates) {
         buf->as_mates = TRUE;
-        buf->mates = Calloc(n, int);
-        buf->partition = Calloc(n, int);
+        buf->mates = R_Calloc(n, int);
+        buf->partition = R_Calloc(n, int);
     }
     return buf;
 }
@@ -26,10 +26,10 @@ void bambuffer_push(BAM_BUFFER buf, const bam1_t *bam)
 {
     if (buf->i == buf->n) {
         buf->n *= 1.3;
-        buf->buffer = Realloc(buf->buffer, buf->n, bam1_t *);
+        buf->buffer = R_Realloc(buf->buffer, buf->n, bam1_t *);
         if (buf->as_mates) {
-            buf->mates = Realloc(buf->mates, buf->n, int);
-            buf->partition = Realloc(buf->partition, buf->n, int);
+            buf->mates = R_Realloc(buf->mates, buf->n, int);
+            buf->partition = R_Realloc(buf->partition, buf->n, int);
         }
     }
     buf->buffer[buf->i] = bam_dup1(bam);
@@ -50,12 +50,12 @@ void _bambuffer_reset(BAM_BUFFER buf)
 void bambuffer_free(BAM_BUFFER buf)
 {
     _bambuffer_reset(buf);
-    Free(buf->buffer);
+    R_Free(buf->buffer);
     if (buf->as_mates) {
-        Free(buf->mates);
-        Free(buf->partition);
+        R_Free(buf->mates);
+        R_Free(buf->partition);
     }
-    Free(buf);
+    R_Free(buf);
 }
 
 static void _bambuffer_finalizer(SEXP ext)

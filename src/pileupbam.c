@@ -65,10 +65,10 @@ const int QUAL_LEVELS = 94,     /* printable ASCII */
 static PILEUP_ITER_T *_iter_init(SEXP files, PILEUP_PARAM_T * param)
 {
     int i;
-    PILEUP_ITER_T *iter = Calloc(1, PILEUP_ITER_T);
+    PILEUP_ITER_T *iter = R_Calloc(1, PILEUP_ITER_T);
     iter->n_files = Rf_length(files);;
-    iter->mfile = Calloc(iter->n_files, BAM_ITER_T *);
-    iter->mfile[0] = Calloc(iter->n_files, BAM_ITER_T);
+    iter->mfile = R_Calloc(iter->n_files, BAM_ITER_T *);
+    iter->mfile[0] = R_Calloc(iter->n_files, BAM_ITER_T);
     for (i = 0; i < iter->n_files; ++i) {
         iter->mfile[i] = iter->mfile[0] + i;
         iter->mfile[i]->bfile = BAMFILE(VECTOR_ELT(files, i));
@@ -78,19 +78,19 @@ static PILEUP_ITER_T *_iter_init(SEXP files, PILEUP_PARAM_T * param)
         iter->mfile[i]->keep_flag[1] = param->keep_flag[1];
     }
 
-    iter->plp = Calloc(iter->n_files, const bam_pileup1_t *);
-    iter->n_plp = Calloc(iter->n_files, int);
+    iter->plp = R_Calloc(iter->n_files, const bam_pileup1_t *);
+    iter->n_plp = R_Calloc(iter->n_files, int);
 
     return iter;
 }
 
 static PILEUP_ITER_T *_iter_destroy(PILEUP_ITER_T * iter)
 {
-    Free(iter->plp);
-    Free(iter->n_plp);
-    Free(iter->mfile[0]);
-    Free(iter->mfile);
-    Free(iter);
+    R_Free(iter->plp);
+    R_Free(iter->n_plp);
+    R_Free(iter->mfile[0]);
+    R_Free(iter->mfile);
+    R_Free(iter);
     return NULL;
 }
 
@@ -101,18 +101,18 @@ static REGION_ITER_T *_region_iter_init(SEXP regions)
     int i;
     REGION_ITER_T *iter;
 
-    iter = Calloc(1, REGION_ITER_T);
+    iter = R_Calloc(1, REGION_ITER_T);
 
     iter->i_reg = -1;
     iter->n_reg = Rf_length(VECTOR_ELT(regions, 0));
-    iter->chr = Calloc(iter->n_reg, const char *);
+    iter->chr = R_Calloc(iter->n_reg, const char *);
     for (i = 0; i < iter->n_reg; ++i)
         iter->chr[i] = CHAR(STRING_ELT(VECTOR_ELT(regions, 0), i));
     iter->start = INTEGER(VECTOR_ELT(regions, 1));
     iter->end = INTEGER(VECTOR_ELT(regions, 2));
 
     iter->stashed = FALSE;
-    iter->region = Calloc(1, REGION_T);
+    iter->region = R_Calloc(1, REGION_T);
 
     return iter;
 }
@@ -153,9 +153,9 @@ static REGION_T *_region_iter_pop(REGION_ITER_T * iter)
 
 static REGION_ITER_T *_region_iter_destroy(REGION_ITER_T * iter)
 {
-    Free(iter->chr);
-    Free(iter->region);
-    Free(iter);
+    R_Free(iter->chr);
+    R_Free(iter->region);
+    R_Free(iter);
     return NULL;
 }
 
@@ -561,7 +561,7 @@ static SEXP _yield1_byposition(PILEUP_PARAM_T * param, REGION_ITER_T * reg_iter,
     start_reg = region->i_reg;
     i_reg = 1;
     res = PROTECT(_mplp_setup_R(param, &plp_result));
-    cnt = (int *) Calloc(n_reg, int);
+    cnt = (int *) R_Calloc(n_reg, int);
     memset(cnt, 0, sizeof(int) * n_reg);
 
     while (region && yieldSize > i_yld) {
@@ -599,7 +599,7 @@ static SEXP _yield1_byposition(PILEUP_PARAM_T * param, REGION_ITER_T * reg_iter,
 
     param->yieldSize = yieldSize;
     res = _resize(res, i_yld);
-    Free(cnt);
+    R_Free(cnt);
     UNPROTECT(1);
 
     return res;

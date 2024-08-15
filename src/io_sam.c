@@ -210,9 +210,9 @@ int check_qname(char *last_qname, int bufsize, bam1_t *bam, int max)
         /* get next qname, continue reading */
         } else {
             if (bam->core.l_qname > bufsize) {
-                Free(last_qname);
+                R_Free(last_qname);
                 bufsize = bam->core.l_qname;
-                last_qname = Calloc(bufsize, char);
+                last_qname = R_Calloc(bufsize, char);
             }
             strcpy(last_qname, bam1_qname(bam));
             return 1;
@@ -227,7 +227,7 @@ static int _samread(BAM_FILE bfile, BAM_DATA bd, const int yieldSize,
                     bam_fetch_f parse1)
 {
     int yield = 0, status = 1, bufsize = 1000;
-    char *last_qname = Calloc(bufsize, char);
+    char *last_qname = R_Calloc(bufsize, char);
     bam1_t *bam = bam_init1();
 
     while (samread(bfile->file, bam) >= 0) {
@@ -242,7 +242,7 @@ static int _samread(BAM_FILE bfile, BAM_DATA bd, const int yieldSize,
         int result = parse1(bam, bd);
         if (result < 0) {   /* parse error: e.g., cigar buffer overflow */
             bam_destroy1(bam);
-            Free(last_qname);
+            R_Free(last_qname);
             return yield;
         } else if (result == 0L) /* does not pass filter */
             continue;
@@ -256,7 +256,7 @@ static int _samread(BAM_FILE bfile, BAM_DATA bd, const int yieldSize,
     }
 
     bam_destroy1(bam);
-    Free(last_qname);
+    R_Free(last_qname);
     return yield;
 }
 
@@ -768,7 +768,7 @@ SEXP sort_bam(SEXP filename, SEXP destination, SEXP isByQname,
 
     _check_is_bam(fbam);
 
-    char *fnout = Calloc(strlen(fout) + 4 + 1, char);
+    char *fnout = R_Calloc(strlen(fout) + 4 + 1, char);
     if (!fnout)
         Rf_error("Error generating output\n file: %s", fout);
     sprintf(fnout, "%s.bam", fout);
@@ -781,7 +781,7 @@ SEXP sort_bam(SEXP filename, SEXP destination, SEXP isByQname,
     if(ret < 0)
         Rf_error("Error during sorting\n  file: %s", fbam);
 
-    Free(fnout);
+    R_Free(fnout);
     return destination;
 }
 

@@ -25,7 +25,7 @@ static void _fafile_finalizer(SEXP ext)
         return;
     _fafile_close(ext);
     _FA_FILE *ffile = FAFILE(ext);
-    Free(ffile);
+    R_Free(ffile);
     R_SetExternalPtrAddr(ext, NULL);
 }
 
@@ -44,7 +44,7 @@ SEXP fafile_open(SEXP filename, SEXP indexname, SEXP gzindexname)
     if (!IS_CHARACTER(gzindexname) || LENGTH(gzindexname) != 1)
         Rf_error("'gzindex' must be character(1)");
 
-    _FA_FILE *ffile = Calloc(1, _FA_FILE);
+    _FA_FILE *ffile = R_Calloc(1, _FA_FILE);
     const char
         *fn = translateChar(STRING_ELT(filename, 0)),
         *fnfai = translateChar(STRING_ELT(indexname, 0)),
@@ -52,7 +52,7 @@ SEXP fafile_open(SEXP filename, SEXP indexname, SEXP gzindexname)
 
     ffile->index = fai_load3(fn, fnfai, fngzi, FAI_CREATE);
     if (ffile->index == NULL) {
-        Free(ffile);
+        R_Free(ffile);
         Rf_error("'open' index failed");
     }
 

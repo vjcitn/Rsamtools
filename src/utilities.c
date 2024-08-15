@@ -7,9 +7,9 @@
 
 void *_Rs_Realloc_impl(void *p, size_t n, size_t t)
 {
-    /* Realloc(p, 0, *) fails inappropriately */
+    /* R_Realloc(p, 0, *) fails inappropriately */
     if (n == 0) {
-        Free(p);
+        R_Free(p);
         p = NULL;
     } else {
         p = R_chk_realloc((void *) p, (size_t) (n * t));

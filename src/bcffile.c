@@ -67,7 +67,7 @@ static void _bcffile_finalizer(SEXP ext)
         return;
     _bcffile_close(ext);
     _BCF_FILE *bfile = BCFFILE(ext);
-    Free(bfile);
+    R_Free(bfile);
     R_SetExternalPtrAddr(ext, NULL);
 }
 
@@ -85,12 +85,12 @@ SEXP bcffile_open(SEXP filename, SEXP indexname, SEXP filemode)
     if (LENGTH(filename) != 1)
         Rf_error("'filename' must have length 1");
 
-    _BCF_FILE *bfile = Calloc(1, _BCF_FILE);
+    _BCF_FILE *bfile = R_Calloc(1, _BCF_FILE);
 
     const char *fn = translateChar(STRING_ELT(filename, 0));
     bfile->file = bcf_open(fn, CHAR(STRING_ELT(filemode, 0)));
     if (bfile->file == NULL) {
-        Free(bfile);
+        R_Free(bfile);
         Rf_error("'open' VCF/BCF failed\n  filename: %s", fn);
     }
     bfile->index = NULL;
@@ -100,7 +100,7 @@ SEXP bcffile_open(SEXP filename, SEXP indexname, SEXP filemode)
         bfile->index = bcf_index_load(fn);
         if (bfile->index == NULL) {
             _bcf_close(bfile->file, 0);
-            Free(bfile);
+            R_Free(bfile);
             Rf_error("no valid VCF/BCF index found\n  filename: %s", fn);
         }
     }

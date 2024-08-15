@@ -55,7 +55,7 @@ static void _bamfile_finalizer(SEXP ext)
         return;
     _bamfile_close(ext);
     BAM_FILE bfile = BAMFILE(ext);
-    Free(bfile);
+    R_Free(bfile);
     R_SetExternalPtrAddr(ext, NULL);
 }
 
@@ -67,7 +67,7 @@ SEXP bamfile_init()
 
 static BAM_FILE _bamfile_open_r(SEXP filename, SEXP indexname, SEXP filemode)
 {
-    BAM_FILE bfile = (BAM_FILE) Calloc(1, _BAM_FILE);
+    BAM_FILE bfile = (BAM_FILE) R_Calloc(1, _BAM_FILE);
 
     bfile->file = NULL;
     const char *cfile;
@@ -76,7 +76,7 @@ static BAM_FILE _bamfile_open_r(SEXP filename, SEXP indexname, SEXP filemode)
         bfile->file = _bam_tryopen(cfile, CHAR(STRING_ELT(filemode, 0)), 0);
         if (hts_get_format(bfile->file->file)->format != bam) {
             samclose(bfile->file);
-            Free(bfile);
+            R_Free(bfile);
             Rf_error("'filename' is not a BAM file\n  file: %s", cfile);
         }
         bfile->pos0 = bam_tell(bfile->file->x.bam);
@@ -89,7 +89,7 @@ static BAM_FILE _bamfile_open_r(SEXP filename, SEXP indexname, SEXP filemode)
         bfile->index = _bam_tryindexload(cfile, cindex);
         if (NULL == bfile->index) {
             samclose(bfile->file);
-            Free(bfile);
+            R_Free(bfile);
             Rf_error("failed to open BAM index\n  index: %s\n", cindex);
         }
     }
@@ -111,7 +111,7 @@ static BAM_FILE _bamfile_open_w(SEXP file0, SEXP file1)
                            infile->header);
     samclose(infile);
 
-    bfile = (BAM_FILE) Calloc(1, _BAM_FILE);
+    bfile = (BAM_FILE) R_Calloc(1, _BAM_FILE);
     bfile->file = outfile;
     bfile->pos0 = bam_tell(bfile->file->x.bam);
     bfile->irange0 = 0;

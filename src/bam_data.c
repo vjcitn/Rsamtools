@@ -14,10 +14,10 @@ enum { CIGAR_SIMPLE = 1 };
 
 static BAM_DATA _Calloc_BAM_DATA(int blocksize, int cigar_buf_sz)
 {
-    BAM_DATA bd = Calloc(1, _BAM_DATA);
+    BAM_DATA bd = R_Calloc(1, _BAM_DATA);
     bd->BLOCKSIZE = blocksize;
     bd->cigar_buf_sz = cigar_buf_sz;
-    bd->cigar_buf = Calloc(bd->cigar_buf_sz, char);
+    bd->cigar_buf = R_Calloc(bd->cigar_buf_sz, char);
     return bd;
 }
 
@@ -55,15 +55,15 @@ _init_BAM_DATA(SEXP ext, SEXP regions, SEXP flag, SEXP isSimpleCigar,
 void _Free_BAM_DATA(BAM_DATA bd)
 {
     _Free_C_TAGFILTER(bd->tagfilter);
-    Free(bd->cigar_buf);
-    Free(bd);
+    R_Free(bd->cigar_buf);
+    R_Free(bd);
 }
 
 
 static void _grow_BAM_DATA_cigar(BAM_DATA bd)
 {
     bd->cigar_buf_sz = bd->cigar_buf_sz * 1.6;
-    bd->cigar_buf = Realloc(bd->cigar_buf, bd->cigar_buf_sz, char);
+    bd->cigar_buf = R_Realloc(bd->cigar_buf, bd->cigar_buf_sz, char);
 }
 
 BAM_FILE _bam_file_BAM_DATA(BAM_DATA bd)
@@ -96,7 +96,7 @@ static char *_bamseq(const bam1_t * bam, BAM_DATA bd)
 
     const uint32_t len = bam->core.l_qseq;
     const unsigned char *seq = bam1_seq(bam);
-    char *s = Calloc(len + 1, char);
+    char *s = R_Calloc(len + 1, char);
     for (uint32_t i = 0; i < len; ++i)
         s[i] = key[bam1_seqi(seq, i)];
     if (bd->reverseComplement && bam1_strand(bam))
@@ -109,7 +109,7 @@ static char *_bamqual(const bam1_t * bam, BAM_DATA bd)
 {
     const uint32_t len = bam->core.l_qseq;
     const unsigned char *bamq = bam1_qual(bam);
-    char *s = Calloc(len + 1, char);
+    char *s = R_Calloc(len + 1, char);
     for (uint32_t i = 0; i < len; ++i)
         s[i] = bamq[i] + 33;
     if (bd->reverseComplement && bam1_strand(bam))
@@ -123,7 +123,7 @@ static const char *_map(khash_t(str) * h, const char *s)
     khiter_t k = kh_get(str, h, s);
     if (kh_end(h) == k) {
         int ret;
-        char *buf = Calloc(strlen(s) + 1, char);
+        char *buf = R_Calloc(strlen(s) + 1, char);
         if (!buf)
             Rf_error("_map: failed to allocate memory");
         strcpy(buf, s);
@@ -358,7 +358,7 @@ int _parse1_BAM_DATA(const bam1_t *bam, BAM_DATA bd)
             continue;
         switch (i) {
         case QNAME_IDX:
-            buf = Calloc(strlen(bam1_qname(bam)) + 1, char);
+            buf = R_Calloc(strlen(bam1_qname(bam)) + 1, char);
             if (!buf)
                 Rf_error("_parse1: failed to allocate memory");
             strcpy(buf, bam1_qname(bam));
