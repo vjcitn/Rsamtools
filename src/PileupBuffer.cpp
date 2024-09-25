@@ -172,15 +172,15 @@ SEXP Pileup::yield() {
 
     SEXP nms = PROTECT(Rf_allocVector(STRSXP, numDims));
     curDim = 0;
-    SET_STRING_ELT(nms, curDim++, mkChar("seqnames"));
-    SET_STRING_ELT(nms, curDim++, mkChar("pos"));
+    SET_STRING_ELT(nms, curDim++, Rf_mkChar("seqnames"));
+    SET_STRING_ELT(nms, curDim++, Rf_mkChar("pos"));
     if(hasStrands())
-        SET_STRING_ELT(nms, curDim++, mkChar("strand"));
+        SET_STRING_ELT(nms, curDim++, Rf_mkChar("strand"));
     if(hasNucleotides())
-        SET_STRING_ELT(nms, curDim++, mkChar("nucleotide"));
+        SET_STRING_ELT(nms, curDim++, Rf_mkChar("nucleotide"));
     if(hasBins())
-        SET_STRING_ELT(nms, curDim++, mkChar("bin"));
-    SET_STRING_ELT(nms, curDim++, mkChar("count"));
+        SET_STRING_ELT(nms, curDim++, Rf_mkChar("bin"));
+    SET_STRING_ELT(nms, curDim++, Rf_mkChar("count"));
     SET_ATTR(result, R_NamesSymbol, nms);
 
     extract(resultMgr, result, hasStrands(), hasNucleotides(), hasBins(),
