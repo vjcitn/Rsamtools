@@ -20,9 +20,9 @@ import(S4Vectors)
 
 import(IRanges)
 
-importClassesFrom(GenomeInfoDb, Seqinfo)
+importClassesFrom(Seqinfo, Seqinfo)
 
-importFrom(GenomeInfoDb, Seqinfo, seqinfo, seqlevels, sortSeqlevels)
+importFrom(Seqinfo, Seqinfo, seqinfo, seqlevels, sortSeqlevels)
 
 importClassesFrom(GenomicRanges, GRanges, GRangesList)
 
