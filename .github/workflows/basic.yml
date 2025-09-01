@@ -1,0 +1,31 @@
+name: CI
+on:
+  push:
+    branches: [ devel ]
+jobs:
+  container-test-job:
+    runs-on: ubuntu-latest
+    container:
+      image: bioconductor/bioconductor_docker:devel
+      env:
+        NODE_ENV: development
+      options: --cpus 1
+    steps:
+      - name: Check for dockerenv file
+        run: (ls /.dockerenv && echo Found dockerenv) || (echo No dockerenv)
+      - name: Assess R version
+        run: (Rscript -e version)
+      - name: Where am I
+        run: (pwd)
+      - name: Checkout Repository 
+        uses: actions/checkout@v2 
+      - name: What is here
+        run: (ls)
+      - name: get dependencies
+        run: (Rscript -e "BiocManager::install(basename(getwd()), dependencies=TRUE)")
+      - name: Setup pandoc from r-lib
+        uses: r-lib/actions/setup-pandoc@v2
+        with:
+          pandoc-version: '3.1.11' # The pandoc vers
+      - name: Run rcmdcheck
+        run: (Rscript -e "rcmdcheck::rcmdcheck()")
