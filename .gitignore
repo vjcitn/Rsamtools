@@ -1,0 +1,24 @@
+# R build artifacts
+Rsamtools_*.tar.gz
+Rsamtools.Rcheck/
+*.Rcheck/
+
+# Temporary backup files
+DESCRIPTION.orig
+
+# Vignette build artifacts
+vignettes/*.md
+vignettes/*.html
+vignettes/*.pdf
+
+# R session files
+.RData
+.Rhistory
+
+# Object files
+*.o
+*.so
+*.dll
+
+# Compiled documentation
+man/*.pdf
