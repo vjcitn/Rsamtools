@@ -771,7 +771,7 @@ SEXP sort_bam(SEXP filename, SEXP destination, SEXP isByQname,
     char *fnout = R_Calloc(strlen(fout) + 4 + 1, char);
     if (!fnout)
         Rf_error("Error generating output\n file: %s", fout);
-    sprintf(fnout, "%s.bam", fout);
+    snprintf(fnout, strlen(fout) + 4 + 1, "%s.bam", fout);
 
     int ret = bam_sort_core_ext(sam_order, tagVal, 0,
                                 false, true, fbam,
@@ -799,6 +799,6 @@ SEXP index_bam(SEXP indexname)
     if (0 != status)
         Rf_error("failed to build index\n  file: %s", fbam);
     char *fidx = (char *) R_alloc(strlen(fbam) + 5, sizeof(char));
-    sprintf(fidx, "%s.bai", fbam);
+    snprintf(fidx, strlen(fbam) + 5, "%s.bai", fbam);
     return mkString(fidx);
 }

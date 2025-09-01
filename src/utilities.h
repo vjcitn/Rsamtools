@@ -51,8 +51,8 @@ SEXP find_mate_within_groups(SEXP group_sizes,
 /* call-building macros */
 
 #define NEW_CALL(S, T, NAME, ENV, N)            \
-    PROTECT(S = T = allocList(N));              \
-    SET_TYPEOF(T, LANGSXP);                     \
+    S = PROTECT(Rf_allocVector(LANGSXP, N + 1)); \
+    T = S;                                      \
     SETCAR(T, findFun(install(NAME), ENV));     \
     T = CDR(T)
 #define CSET_CDR(T, NAME, VALUE)                \

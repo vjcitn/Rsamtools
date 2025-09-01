@@ -773,6 +773,6 @@ SEXP index_bcf(SEXP file)
     if (status != 0)
         Rf_error("failed to build index");
     char *fidx = (char *) R_alloc(strlen(fbcf) + 5, sizeof(char));
-    sprintf(fidx, "%s.csi", fbcf);
+    snprintf(fidx, strlen(fbcf) + 5, "%s.csi", fbcf);
     return mkString(fidx);
 }

@@ -1,0 +1,14 @@
+# R package build artifacts
+*.tar.gz
+*.Rcheck/
+*.o
+*.so
+*.dll
+
+# Build directories
+Rsamtools/
+
+# Editor files
+*~
+.#*
+\#*#

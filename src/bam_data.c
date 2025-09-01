@@ -270,7 +270,7 @@ static void _bamtags(const bam1_t * bam, BAM_DATA bd, SEXP tags)
             break;
         case 'A':
             _tag_type_check(tagname, tag, STRSXP);
-            sprintf(buf_A, "%c", bam_aux2A(aux));
+            snprintf(buf_A, sizeof(buf_A), "%c", bam_aux2A(aux));
             SET_STRING_ELT(tag, idx, mkChar(buf_A));
             break;
         case 'Z':

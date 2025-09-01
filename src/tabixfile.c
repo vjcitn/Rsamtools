@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <htslib/hfile.h>
 #include <htslib/bgzf.h>
+#include <htslib/hts.h>
 #include "tabixfile.h"
 #include "utilities.h"
 
@@ -187,8 +188,10 @@ SEXP index_tabix(SEXP filename, SEXP format, SEXP seq, SEXP begin, SEXP end,
         LOGICAL(zeroBased)[0] == TRUE)
         conf.preset |= TBX_UCSC;
 
-    if (bgzf_is_bgzf(fn) != 1)
+    htsFile *test_file = hts_open(fn, "r");
+    if (test_file == NULL || !test_file->is_bgzf)
         Rf_error("file does not appear to be bgzip'd");
+    hts_close(test_file);
     if (tbx_index_build(fn, 0, &conf) == -1)
         Rf_error("index build failed");
 
