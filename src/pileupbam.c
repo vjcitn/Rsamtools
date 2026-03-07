@@ -655,7 +655,7 @@ SEXP apply_pileups(SEXP files, SEXP names, SEXP regions, SEXP param,
     if (R_NilValue == regions)
         Rf_error("'NULL' regions not (yet) supported");
     _checkparams(regions, R_NilValue, R_NilValue);
-    if (!Rf_isFunction(callback) || 1L != Rf_length(FORMALS(callback)))
+    if (!Rf_isFunction(callback) || 1L != Rf_length(R_ClosureFormals(callback)))
         Rf_error("'callback' must be a function of 1 argument");
     call = PROTECT(Rf_lang2(callback, R_NilValue));
 
