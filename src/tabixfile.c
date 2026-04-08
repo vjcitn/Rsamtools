@@ -187,8 +187,12 @@ SEXP index_tabix(SEXP filename, SEXP format, SEXP seq, SEXP begin, SEXP end,
         LOGICAL(zeroBased)[0] == TRUE)
         conf.preset |= TBX_UCSC;
 
+/* following is deprecated in HTSLIB with no precise replacement proposed */
+/* seems unimportant */
+/*
     if (bgzf_is_bgzf(fn) != 1)
         Rf_error("file does not appear to be bgzip'd");
+*/
     if (tbx_index_build(fn, 0, &conf) == -1)
         Rf_error("index build failed");
 
